@@ -1,0 +1,44 @@
+# Snap packaging for PassVault (the Java CLI lives in ./passpass).
+# Build:   snapcraft            (from the repository root)
+# Install: sudo snap install --dangerous ./passvault_*.snap
+# Run:     passvault
+
+name: passvault           # must be unique in the Snap Store: `snapcraft register passvault`
+base: core24              # runtime root filesystem = Ubuntu 24.04 LTS
+version: '1.0'
+summary: A simple command-line password manager
+description: |
+  PassVault is a command-line password manager. Each user registers with a
+  master password (stored as a salted PBKDF2 hash) and can save site
+  credentials, which are encrypted with AES using a key derived from the
+  master password. Data is kept in a local SQLite database.
+
+  When installed as a snap, the database is stored in
+  ~/snap/passvault/common/passpass.db.
+
+grade: stable             # `devel` restricts releases to the edge/beta channels
+confinement: strict       # fully sandboxed; this app needs no extra interfaces
+
+apps:
+  passvault:
+    # bin/java is a symlink the maven plugin creates to the bundled JRE;
+    # paths are relative to $SNAP (where the snap is mounted, read-only)
+    command: bin/java -jar $SNAP/jar/passvault.jar
+
+parts:
+  passvault:
+    plugin: maven         # runs `mvn package`, then links jars into $CRAFT_PART_INSTALL/jar
+    source: passpass      # directory containing pom.xml
+    maven-parameters:
+      - -DskipTests
+    build-packages:       # installed only on the build machine
+      - openjdk-21-jdk-headless
+      - maven
+    stage-packages:       # bundled inside the snap (the Java runtime)
+      - openjdk-21-jre-headless
+    override-build: |
+      # start from a clean tree so stale jars from a local build are not packed
+      rm -rf target
+      craftctl default
+      # the shade plugin also leaves the thin, non-runnable jar behind; drop it
+      rm -f "$CRAFT_PART_INSTALL"/jar/original-*.jar

@@ -1,0 +1,12 @@
+# Maven build output
+target/
+
+# Local vault databases (contain user password hashes and encrypted entries)
+*.db
+
+# Snapcraft build output
+*.snap
+parts/
+stage/
+prime/
+.craft/
