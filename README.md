@@ -40,15 +40,3 @@ snapcraft                                       # run from the repo root -> pass
 sudo snap install --dangerous ./passvault_1.0_amd64.snap
 passvault
 ```
-
-`--dangerous` is needed because a locally built snap isn't signed by the store.
-
-### Publish to the Snap Store
-
-```bash
-snapcraft login                     # Ubuntu One account
-snapcraft register passvault        # reserve the name (one-time)
-snapcraft upload --release=edge passvault_1.0_amd64.snap
-snap info passvault                 # check the channel map
-snapcraft release passvault <revision> stable   # promote once tested
-```
