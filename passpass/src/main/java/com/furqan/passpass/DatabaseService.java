@@ -1,11 +1,32 @@
 package com.furqan.passpass;
 
+import java.nio.file.Paths;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class DatabaseService {
-    private static final String DB_URL = "jdbc:sqlite:passpass.db";
+    private static final String DB_FILE_NAME = "passpass.db";
+    private static final String DB_URL = "jdbc:sqlite:" + resolveDbPath();
+
+    /**
+     * Decide where the SQLite database file lives:
+     * 1. PASSVAULT_DB environment variable, if set (explicit override)
+     * 2. $SNAP_USER_COMMON/passpass.db when running as a snap, because a
+     *    strictly confined snap may only write inside its own data dirs
+     * 3. passpass.db in the current working directory otherwise
+     */
+    static String resolveDbPath() {
+        String override = System.getenv("PASSVAULT_DB");
+        if (override != null && !override.isBlank()) {
+            return override;
+        }
+        String snapUserCommon = System.getenv("SNAP_USER_COMMON");
+        if (snapUserCommon != null && !snapUserCommon.isBlank()) {
+            return Paths.get(snapUserCommon, DB_FILE_NAME).toString();
+        }
+        return DB_FILE_NAME;
+    }
 
     public DatabaseService() {
         try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
