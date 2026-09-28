@@ -39,7 +39,7 @@ public class App
             
             if (running) {
                 System.out.println("\nPress Enter to continue...");
-                readLine();
+                scanner.nextLine();
             }
         }
         
@@ -56,21 +56,9 @@ public class App
         System.out.print("Please choose an option (1-3): ");
     }
     
-    /**
-     * Read one line of input, exiting cleanly if input has ended
-     * (Ctrl+D, or stdin closed) instead of crashing with an exception.
-     */
-    private static String readLine() {
-        if (!scanner.hasNextLine()) {
-            System.out.println("\nInput closed. Goodbye!");
-            System.exit(0);
-        }
-        return scanner.nextLine();
-    }
-
     private static int getUserChoice() {
         try {
-            String input = readLine();
+            String input = scanner.nextLine();
             return Integer.parseInt(input.trim());
         } catch (Exception e) {
             System.out.println("Invalid input. Please enter a number.");
@@ -81,7 +69,7 @@ public class App
     private static void registerUser() {
         System.out.println("\n=== User Registration ===");
         System.out.print("Enter username: ");
-        String username = readLine();
+        String username = scanner.nextLine();
         
         if (userService.userExists(username)) {
             System.out.println("Username already exists! Please choose a different username.");
@@ -89,7 +77,7 @@ public class App
         }
         
         System.out.print("Enter password: ");
-        String password = readLine();
+        String password = scanner.nextLine();
         
         if (!userService.isValidPassword(password)) {
             System.out.println("Password must be at least 6 characters long!");
@@ -110,9 +98,9 @@ public class App
     private static void loginUser() {
         System.out.println("\n=== User Login ===");
         System.out.print("Enter username: ");
-        String username = readLine();
+        String username = scanner.nextLine();
         System.out.print("Enter password: ");
-        String password = readLine();
+        String password = scanner.nextLine();
         if (userService.authenticateUser(username, password)) {
             System.out.println("Login successful! Welcome, " + username + "!");
             showUserMenu(username, password);
@@ -146,7 +134,7 @@ public class App
             }
             if (loggedIn) {
                 System.out.println("\nPress Enter to continue...");
-                readLine();
+                scanner.nextLine();
             }
         }
     }
@@ -155,11 +143,11 @@ public class App
         try {
             System.out.println("\n=== Add Vault Entry ===");
             System.out.print("Site: ");
-            String site = readLine();
+            String site = scanner.nextLine();
             System.out.print("Site Username: ");
-            String siteUsername = readLine();
+            String siteUsername = scanner.nextLine();
             System.out.print("Site Password: ");
-            String sitePassword = readLine();
+            String sitePassword = scanner.nextLine();
             // Use user's salt for key derivation
             User user = userService.getUser(username);
             if (user == null) {
