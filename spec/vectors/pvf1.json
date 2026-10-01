@@ -61,7 +61,8 @@
     "wrappedVaultKey": "pvf1.oKGio6Slpqeoqaqr.2nI1fpxaegF2OYZNxgorL1M9AELoaQH5p7li_ADn36Zd3y1rPk7ET6GMGrNggKP8",
     "fingerprint": {
       "bytes": "nIlgc0OMtRvTN3v3MQjRXw",
-      "code": "9C89 6073 438C"
+      "code": "9C89 6073 438C",
+      "rings": "GzfUZDIUy_2gPNO4VD2L0g"
     },
     "item": {
       "id": "3f2b8c1e-9d4a-4f6b-8e2c-1a5d7f9b0c3e",

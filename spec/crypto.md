@@ -111,8 +111,10 @@ prefix is not `pvf1`, whose IV is not 12 bytes, or whose tag doesn't verify.
 
 - **Code:** the first 6 bytes of `fp` as uppercase hex in three groups of four,
   for example `7F3A 91C2 0E5B`.
-- **Rings:** the full 16 bytes (128 bits) drive the ring pattern on the lock
-  screen. Bits are read most significant first.
+- **Rings:** the ring pattern is drawn from
+  `SHA-256(UTF-8("passvaultify/v1/rings/" + code))`, first 16 bytes (128 bits),
+  read most significant bit first. Deriving it from the code means the lock
+  screen can draw it from the vault header alone, before unlocking.
 
 The fingerprint is computed when the vault is created and stored in plaintext
 with the vault, so the lock screen can show it before unlocking. It reveals
