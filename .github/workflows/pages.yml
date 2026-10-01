@@ -1,4 +1,4 @@
-name: Deploy specimen to GitHub Pages
+name: Deploy web vault to GitHub Pages
 
 on:
   push:

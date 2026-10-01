@@ -26,10 +26,12 @@ export interface KdfParams {
 }
 
 export interface Fingerprint {
-  /** 16 bytes that drive the ring pattern. */
+  /** HKDF output; the code is its first 6 bytes. */
   bytes: Bytes;
-  /** First 6 bytes as "XXXX XXXX XXXX". */
+  /** First 6 bytes as "XXXX XXXX XXXX". Stored in the vault header. */
   code: string;
+  /** 16 bytes that drive the ring pattern, derived from the code. */
+  rings: Bytes;
 }
 
 /** What a vault stores in plaintext. None of it is secret. */
@@ -149,7 +151,17 @@ export async function open(key: KeyInput, envelope: string, aad: string): Promis
 export async function computeFingerprint(vaultKeyBytes: Bytes): Promise<Fingerprint> {
   const bytes = await hkdf(vaultKeyBytes, INFO_FINGERPRINT, 16);
   const hex = toHex(bytes.subarray(0, 6)).toUpperCase();
-  return { bytes, code: `${hex.slice(0, 4)} ${hex.slice(4, 8)} ${hex.slice(8, 12)}` };
+  const code = `${hex.slice(0, 4)} ${hex.slice(4, 8)} ${hex.slice(8, 12)}`;
+  return { bytes, code, rings: await fingerprintRings(code) };
+}
+
+/**
+ * The ring pattern for a fingerprint code. Derived from the code alone, so the
+ * lock screen can draw it from the vault header before unlocking.
+ */
+export async function fingerprintRings(code: string): Promise<Bytes> {
+  const digest = await subtle().digest('SHA-256', utf8(`passvaultify/v1/rings/${code}`));
+  return new Uint8Array(digest).slice(0, 16);
 }
 
 export interface CreateVaultOptions {

@@ -167,7 +167,7 @@ function LockCard({
   fingerprint,
   tryUnlock,
 }: {
-  fingerprint: { bytes: Uint8Array; code: string };
+  fingerprint: { rings: Uint8Array; code: string };
   tryUnlock: (pw: string) => Promise<boolean>;
 }) {
   const [password, setPassword] = useState('');
@@ -203,7 +203,7 @@ function LockCard({
     <article className="pv-card spec-card spec-lock" aria-labelledby="lock-title">
       <DataChip mode="local" />
       <Fingerprint
-        bytes={fingerprint.bytes}
+        bytes={fingerprint.rings}
         turn={turn}
         glyph="lock"
         label={`Vault fingerprint ${fingerprint.code}`}

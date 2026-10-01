@@ -8,6 +8,7 @@ RFC 5869, NIST GCM), so the output can be trusted as a reference.
 Run from the repo root:  python3 spec/vectors/generate.py
 """
 import base64
+import hashlib
 import json
 import pathlib
 import unicodedata
@@ -80,6 +81,7 @@ wrapped_vault_key = seal(wrap_key, wrap_iv, vault_key, b"passvaultify/v1/vault-k
 fp = hkdf(vault_key, b"passvaultify/v1/fingerprint", 16)
 fp_hex = fp[:6].hex().upper()
 fingerprint_code = " ".join(fp_hex[i : i + 4] for i in range(0, 12, 4))
+rings = hashlib.sha256(f"passvaultify/v1/rings/{fingerprint_code}".encode()).digest()[:16]
 
 item_id = "3f2b8c1e-9d4a-4f6b-8e2c-1a5d7f9b0c3e"
 item_json = json.dumps(
@@ -133,7 +135,7 @@ vectors = {
         "vaultKey": b64u(vault_key),
         "wrapIv": b64u(wrap_iv),
         "wrappedVaultKey": wrapped_vault_key,
-        "fingerprint": {"bytes": b64u(fp), "code": fingerprint_code},
+        "fingerprint": {"bytes": b64u(fp), "code": fingerprint_code, "rings": b64u(rings)},
         "item": {"id": item_id, "json": item_json, "iv": b64u(item_iv), "envelope": item_envelope},
     },
     "nfkc": {

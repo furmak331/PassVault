@@ -4,18 +4,24 @@ A zero-knowledge password manager. You choose where your vault lives: only on
 your machine, on a server you run, or in the cloud. In every mode it's
 encrypted on your device first, so nobody else can read it.
 
-> **Status:** P0 (foundations). The crypto core, design system and API
-> contract are in place; the web vault and Chrome extension come next. This is
-> an educational project and has not been independently audited.
+> **Status:** P1 (web vault, local-only). The web vault works end to end on
+> one device: create a vault, unlock it, and manage logins and notes. Sync, the
+> Chrome extension and import/export come next. This is an educational project
+> and has not been independently audited.
+
+**Try it:** [furmak331.github.io/PassVault](https://furmak331.github.io/PassVault/).
+Pick "Explore the demo vault" for sample data (password
+`correct horse battery staple`), or create your own. Nothing leaves the browser.
+The design system lives at [`specimen.html`](https://furmak331.github.io/PassVault/specimen.html).
 
 ## What's here
 
 ```
 apps/
-  web/         React + Vite. Today: the live design-system specimen
+  web/         React + Vite web vault, plus the design-system specimen
   cli/         The original Java CLI (becomes a pvf1 client in P5)
 packages/
-  core/        Crypto (pvf1), encoding, secure randomness. Web Crypto only
+  core/        Crypto (pvf1), vault model, generator, strength. Web Crypto only
   ui/          Design tokens, styles and React components
 spec/
   crypto.md    The crypto format, the source of truth for every client
@@ -31,8 +37,8 @@ Requires Node 22+ and pnpm 10 (`corepack enable`).
 
 ```bash
 pnpm install
-pnpm dev          # specimen at http://localhost:5173
-pnpm test         # unit tests for core and ui
+pnpm dev          # vault at http://localhost:5173, specimen at /specimen.html
+pnpm test         # unit tests for core, ui and web
 pnpm typecheck
 pnpm lint         # ESLint + Prettier
 pnpm build
@@ -49,6 +55,25 @@ python3 spec/vectors/generate.py
 The generator first checks published RFC 7914, RFC 5869 and NIST GCM vectors,
 then writes `spec/vectors/pvf1.json`. CI fails if the committed file differs
 from a fresh run.
+
+## The web vault
+
+- **Onboarding** that explains the one thing users must know: there's no
+  password reset. Master-password strength is estimated with zxcvbn, shown as
+  the offline guessing time against a stolen copy.
+- **Lock screen with a vault fingerprint.** Each vault has a unique ring
+  pattern and code. A phishing page can't reproduce it, so users learn to look
+  for it before typing.
+- **Logins and secure notes** with favorites, tags, search, password history
+  and a reused-password warning.
+- **Trash with Undo**, kept for 30 days. Permanent deletes leave a tombstone so
+  future sync can propagate them.
+- **Generator** for random passwords, EFF-wordlist passphrases and PINs, with
+  entropy and crack-time estimates.
+- **Auto-lock** after inactivity, measured by timestamps so it still fires
+  after the tab was in the background.
+- **Local-only storage** in IndexedDB. The store only ever receives the vault
+  header and encrypted records.
 
 ## How the crypto works
 
