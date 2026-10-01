@@ -1,0 +1,5 @@
+extends:
+  - recommended
+rules:
+  # http://localhost:8080 is the real development server, not a placeholder.
+  no-server-example.com: off
