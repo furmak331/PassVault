@@ -1,0 +1,26 @@
+{
+  "name": "@passvaultify/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PassVaultify web vault. In P0 it hosts the live design-system specimen.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@passvaultify/core": "workspace:*",
+    "@passvaultify/ui": "workspace:*",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "typescript": "6.0.3",
+    "vite": "8.3.2"
+  }
+}
