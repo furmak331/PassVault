@@ -1,0 +1,32 @@
+{
+  "name": "passvaultify",
+  "private": true,
+  "description": "PassVaultify: a zero-knowledge password manager with local-only, self-hosted and cloud storage.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "spec:lint": "redocly lint spec/openapi.yaml",
+    "vectors": "python3 spec/vectors/generate.py"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@redocly/cli": "2.57.0",
+    "eslint": "10.11.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.13.0",
+    "prettier": "3.9.9",
+    "turbo": "2.11.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.0"
+  }
+}
