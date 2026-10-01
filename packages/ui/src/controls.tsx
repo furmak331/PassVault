@@ -1,10 +1,18 @@
-import { useId, useState, type InputHTMLAttributes, type KeyboardEvent } from 'react';
+import {
+  useId,
+  useState,
+  type InputHTMLAttributes,
+  type KeyboardEvent,
+  type Ref,
+  type TextareaHTMLAttributes,
+} from 'react';
 
 export interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {
   label: string;
   hint?: string;
   /** Hide the label visually but keep it for screen readers. */
   hideLabel?: boolean;
+  ref?: Ref<HTMLInputElement>;
 }
 
 /** Text input with a label. Password fields warn when Caps Lock is on. */
@@ -47,6 +55,34 @@ export function TextField({
           Caps Lock is on
         </span>
       )}
+      {hint && (
+        <span id={hintId} className="pv-field__hint">
+          {hint}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export interface TextAreaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'id'> {
+  label: string;
+  hint?: string;
+}
+
+export function TextArea({ label, hint, className, ...rest }: TextAreaProps) {
+  const id = useId();
+  const hintId = hint ? `${id}-hint` : undefined;
+  return (
+    <div className="pv-field">
+      <label htmlFor={id} className="pv-field__label">
+        {label}
+      </label>
+      <textarea
+        id={id}
+        className={['pv-input', 'pv-textarea', className].filter(Boolean).join(' ')}
+        aria-describedby={hintId}
+        {...rest}
+      />
       {hint && (
         <span id={hintId} className="pv-field__hint">
           {hint}
