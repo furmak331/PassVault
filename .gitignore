@@ -10,3 +10,9 @@ parts/
 stage/
 prime/
 .craft/
+
+# Node / TypeScript
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo

@@ -1,0 +1,6 @@
+dist
+node_modules
+pnpm-lock.yaml
+apps/cli
+spec/vectors/*.json
+.vscode

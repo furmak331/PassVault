@@ -1,0 +1,317 @@
+/* Page layout for the design-system specimen. Product styles live in @passvaultify/ui. */
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+.spec {
+  min-height: 100vh;
+  padding-inline: 20px;
+  padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px);
+  font-size: 15px;
+}
+.spec a {
+  color: var(--pv-acc);
+  text-underline-offset: 3px;
+}
+
+.spec-top {
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-block: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  border-bottom: 1px solid var(--pv-line);
+}
+.spec-brand {
+  margin: 0;
+  font-stretch: 112%;
+  font-weight: 750;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+.spec-brand span {
+  margin-left: 8px;
+  font: 600 11px var(--pv-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pv-ink-3);
+}
+.spec-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+.spec-accents {
+  display: flex;
+  gap: 8px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.spec-swatch {
+  position: relative;
+  display: block;
+  cursor: pointer;
+}
+.spec-swatch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.spec-swatch span[aria-hidden] {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--c);
+}
+.spec-swatch input:checked + span {
+  box-shadow:
+    0 0 0 2px var(--pv-bg),
+    0 0 0 4px var(--pv-ink);
+}
+.spec-swatch input:focus-visible + span {
+  outline: 2px solid var(--pv-acc);
+  outline-offset: 4px;
+}
+
+.spec-main {
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-block: 48px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+}
+
+.spec-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 760px;
+}
+.spec-hero h1 {
+  margin: 0;
+  font-stretch: 118%;
+  font-weight: 760;
+  font-size: clamp(2rem, 4.6vw, 3.25rem);
+  line-height: 1.05;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
+}
+.spec-hero > p {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--pv-ink-2);
+  max-width: 62ch;
+}
+.spec-stat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 14px !important;
+  color: var(--pv-ink) !important;
+}
+.spec-stat .pv-icon {
+  color: var(--pv-ok);
+}
+.spec-stat span {
+  font: 600 11.5px var(--pv-mono);
+  color: var(--pv-ink-3);
+}
+
+.spec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.spec-card {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.spec-card-title {
+  margin: 0;
+  font-stretch: 108%;
+  font-weight: 680;
+  font-size: 16px;
+  letter-spacing: -0.005em;
+}
+.spec-placeholder {
+  min-height: 420px;
+}
+.spec-help {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--pv-ink-3);
+}
+.spec-msg {
+  margin: 0;
+  min-height: 2.9em;
+  font-size: 13px;
+  color: var(--pv-ink-2);
+}
+.spec-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--pv-ink-3);
+}
+.spec-hint code {
+  font-family: var(--pv-mono);
+  color: var(--pv-ink-2);
+}
+.spec-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--pv-ink-2);
+}
+
+.spec-lock {
+  align-items: center;
+  text-align: center;
+}
+.spec-lock .pv-fp {
+  width: min(168px, 62%);
+  height: auto;
+}
+.spec-lock .pv-fp-code {
+  margin: 0;
+}
+.spec-unlock {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+}
+.spec-unlock .pv-field {
+  flex: 1;
+}
+
+.spec-item-head {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+.spec-avatar {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-weight: 720;
+  color: var(--pv-acc);
+  background: var(--pv-acc-soft);
+}
+.spec-secret-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.spec-secret-row .pv-secret {
+  flex: 1;
+}
+.spec-stored {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--pv-raised);
+  box-shadow: inset 0 0 0 1px var(--pv-line);
+}
+.spec-stored p {
+  margin: 0;
+}
+.spec-stored code {
+  font: 12px/1.5 var(--pv-mono);
+  color: var(--pv-ink-2);
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.spec-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.spec-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.spec-section h2 {
+  margin: 0;
+  font-stretch: 112%;
+  font-weight: 720;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+.spec-tokens {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(130px, 100%), 1fr));
+  gap: 12px;
+}
+.spec-token {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.spec-token span {
+  display: block;
+  height: 46px;
+  border-radius: 9px;
+  box-shadow: inset 0 0 0 1px var(--pv-line-2);
+}
+.spec-token code {
+  font: 12px var(--pv-mono);
+  color: var(--pv-ink-2);
+}
+.spec-type {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-block: 4px;
+}
+.spec-type p {
+  margin: 0;
+}
+.spec-type-display {
+  font-stretch: 125%;
+  font-weight: 780;
+  font-size: clamp(28px, 5vw, 46px);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+.spec-type-body {
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--pv-ink-2);
+}
+.spec-type-mono {
+  font: 700 clamp(24px, 4.4vw, 36px) var(--pv-mono);
+  letter-spacing: 0.1em;
+}
+
+.spec-foot {
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-block: 20px 32px;
+  border-top: 1px solid var(--pv-line);
+  font-size: 13px;
+  color: var(--pv-ink-3);
+}

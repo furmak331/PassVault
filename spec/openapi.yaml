@@ -1,0 +1,549 @@
+openapi: 3.1.0
+info:
+  title: PassVaultify Sync API
+  version: 0.1.0
+  summary: Zero-knowledge sync for PassVaultify vaults.
+  description: |
+    The same API serves self-hosted servers and PassVaultify Cloud.
+
+    The server never receives the master password, the master key, the vault
+    key or any plaintext. It stores KDF settings, the wrapped vault key, the
+    vault fingerprint, item ciphertext (`pvf1` envelopes, see spec/crypto.md)
+    and an Argon2id hash of each account's auth key.
+
+    Draft for P4. Clients are generated from this file, so change it first.
+  license:
+    name: UNLICENSED
+    identifier: UNLICENSED
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://{host}
+    description: Self-hosted or cloud server
+    variables:
+      host:
+        default: vault.home.arpa
+tags:
+  - name: server
+    description: Server identity and health
+  - name: auth
+    description: Accounts and sessions
+  - name: sync
+    description: Encrypted items and change notifications
+  - name: devices
+    description: Signed-in devices
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [server]
+      operationId: getHealth
+      summary: Liveness check
+      security: []
+      responses:
+        '200':
+          description: The server is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: ok
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/server:
+    get:
+      tags: [server]
+      operationId: getServerInfo
+      summary: Server version and fingerprint
+      description: Clients show the fingerprint on first connect so the user can compare it with the server's admin page, then pin it.
+      security: []
+      responses:
+        '200':
+          description: Server identity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerInfo'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/auth/prelogin:
+    post:
+      tags: [auth]
+      operationId: prelogin
+      summary: Get KDF settings for an email
+      description: |
+        Returns the KDF settings the client needs to derive the auth key.
+        For unknown emails the server returns consistent, plausible fake
+        settings derived from the email, so accounts can't be enumerated.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: KDF settings.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [kdf]
+                properties:
+                  kdf:
+                    $ref: '#/components/schemas/KdfParams'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/accounts:
+    post:
+      tags: [auth]
+      operationId: createAccount
+      summary: Create an account
+      description: Uploads a vault created on the client. Only the auth key is sent; the server stores Argon2id(authKey).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, authKey, header]
+              properties:
+                email:
+                  type: string
+                  format: email
+                authKey:
+                  $ref: '#/components/schemas/Base64Url'
+                header:
+                  $ref: '#/components/schemas/VaultHeader'
+      responses:
+        '201':
+          description: Account created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accountId]
+                properties:
+                  accountId:
+                    type: string
+                    format: uuid
+        '409':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Sign in with the auth key
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, authKey, device]
+              properties:
+                email:
+                  type: string
+                  format: email
+                authKey:
+                  $ref: '#/components/schemas/Base64Url'
+                device:
+                  $ref: '#/components/schemas/DeviceInput'
+      responses:
+        '200':
+          description: Signed in.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tokens, header]
+                properties:
+                  tokens:
+                    $ref: '#/components/schemas/Tokens'
+                  header:
+                    $ref: '#/components/schemas/VaultHeader'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshTokens
+      summary: Rotate the refresh token
+      description: Each refresh token works once. Reusing an old one revokes the whole session.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: New tokens.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tokens'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /v1/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: End this device's session
+      responses:
+        '204':
+          description: Signed out.
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /v1/vault/header:
+    put:
+      tags: [auth]
+      operationId: updateVaultHeader
+      summary: Store a new header after a master password change
+      description: The vault key is re-wrapped on the client. Items are not re-encrypted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentAuthKey, newAuthKey, header]
+              properties:
+                currentAuthKey:
+                  $ref: '#/components/schemas/Base64Url'
+                newAuthKey:
+                  $ref: '#/components/schemas/Base64Url'
+                header:
+                  $ref: '#/components/schemas/VaultHeader'
+      responses:
+        '204':
+          description: Header updated. Other devices must sign in again.
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /v1/sync:
+    get:
+      tags: [sync]
+      operationId: getChanges
+      summary: Items changed since a revision
+      parameters:
+        - name: since
+          in: query
+          required: false
+          description: Last vault revision the client has. Omit for a full sync.
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        '200':
+          description: Changed items, including deletions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revision, items]
+                properties:
+                  revision:
+                    type: integer
+                    format: int64
+                    description: The vault's current revision. Pass it as `since` next time.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ItemRecord'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /v1/items/{itemId}:
+    put:
+      tags: [sync]
+      operationId: putItem
+      summary: Create, update or delete an item
+      description: |
+        Optimistic concurrency: send the revision you last saw. If the server
+        has a newer one it returns 409 with its copy, and the client keeps
+        both versions and asks the user.
+      parameters:
+        - $ref: '#/components/parameters/ItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemWrite'
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemRecord'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: The item changed on another device.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [current]
+                properties:
+                  current:
+                    $ref: '#/components/schemas/ItemRecord'
+
+  /v1/events:
+    get:
+      tags: [sync]
+      operationId: streamEvents
+      summary: Change notifications (Server-Sent Events)
+      description: Sends `vault-changed` with the new revision whenever another device writes. Carries no item data.
+      responses:
+        '200':
+          description: An event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /v1/devices:
+    get:
+      tags: [devices]
+      operationId: listDevices
+      summary: Signed-in devices
+      responses:
+        '200':
+          description: Devices with an active session.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Device'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /v1/devices/{deviceId}:
+    delete:
+      tags: [devices]
+      operationId: signOutDevice
+      summary: Sign a device out remotely
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: The device's session was revoked.
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Short-lived access token from /v1/auth/login or /v1/auth/refresh.
+
+  parameters:
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Problem:
+      description: An error, as RFC 9457 problem details.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    RateLimited:
+      description: Too many attempts. Retry after the number of seconds in the Retry-After header.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  schemas:
+    Base64Url:
+      type: string
+      pattern: '^[A-Za-z0-9_-]+$'
+      description: Binary data, base64url without padding.
+
+    Envelope:
+      type: string
+      pattern: '^pvf1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
+      description: AES-256-GCM ciphertext in the pvf1 envelope format.
+
+    KdfParams:
+      type: object
+      required: [alg, iterations, salt]
+      properties:
+        alg:
+          type: string
+          enum: [pbkdf2-sha256]
+        iterations:
+          type: integer
+          minimum: 100000
+        salt:
+          $ref: '#/components/schemas/Base64Url'
+
+    VaultHeader:
+      type: object
+      required: [format, kdf, wrappedVaultKey, fingerprint]
+      properties:
+        format:
+          type: string
+          const: pvf1
+        kdf:
+          $ref: '#/components/schemas/KdfParams'
+        wrappedVaultKey:
+          $ref: '#/components/schemas/Envelope'
+        fingerprint:
+          type: string
+          pattern: '^[0-9A-F]{4} [0-9A-F]{4} [0-9A-F]{4}$'
+
+    ItemWrite:
+      type: object
+      required: [expectedRevision, deleted]
+      properties:
+        expectedRevision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 0 when creating a new item.
+        deleted:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Envelope'
+
+    ItemRecord:
+      type: object
+      required: [id, revision, updatedAt, deleted]
+      properties:
+        id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          format: int64
+        updatedAt:
+          type: string
+          format: date-time
+        deleted:
+          type: boolean
+          description: Tombstone. Deleted items keep their ID and revision so other devices learn about the deletion.
+        data:
+          $ref: '#/components/schemas/Envelope'
+
+    Tokens:
+      type: object
+      required: [accessToken, refreshToken, expiresIn]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          description: Access token lifetime in seconds.
+
+    DeviceInput:
+      type: object
+      required: [name, kind]
+      properties:
+        name:
+          type: string
+          maxLength: 80
+        kind:
+          type: string
+          enum: [extension, web, cli]
+
+    Device:
+      allOf:
+        - $ref: '#/components/schemas/DeviceInput'
+        - type: object
+          required: [id, lastSeenAt, current]
+          properties:
+            id:
+              type: string
+              format: uuid
+            lastSeenAt:
+              type: string
+              format: date-time
+            current:
+              type: boolean
+              description: True for the device making this request.
+
+    ServerInfo:
+      type: object
+      required: [version, fingerprint, registration]
+      properties:
+        version:
+          type: string
+        fingerprint:
+          type: string
+          pattern: '^[0-9A-F]{4} [0-9A-F]{4} [0-9A-F]{4}$'
+        registration:
+          type: string
+          enum: [open, invite-only, closed]
+
+    Problem:
+      type: object
+      required: [title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
