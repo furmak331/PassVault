@@ -206,41 +206,6 @@
   font: 600 13px var(--pv-mono);
   color: var(--pv-ink-3);
 }
-.search {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 0 8px 0 11px;
-  border-radius: var(--pv-radius);
-  border: 1px solid var(--pv-line-2);
-  background: var(--pv-sunken);
-  color: var(--pv-ink-3);
-  transition:
-    border-color 140ms var(--pv-ease),
-    box-shadow 140ms var(--pv-ease);
-}
-.search:focus-within {
-  border-color: var(--pv-acc);
-  box-shadow: 0 0 0 3px var(--pv-acc-soft);
-}
-.search input {
-  flex: 1;
-  min-width: 0;
-  height: 36px;
-  border: 0;
-  background: transparent;
-  color: var(--pv-ink);
-  font: inherit;
-}
-.search input:focus {
-  outline: none;
-}
-.search input::placeholder {
-  color: var(--pv-ink-3);
-}
-.search input::-webkit-search-cancel-button {
-  display: none;
-}
 .trash-note {
   display: flex;
   flex-wrap: wrap;
@@ -758,13 +723,10 @@
   flex-direction: column;
   gap: 12px;
 }
+/* Block, not flex: as flex items, characters could wrap mid-word. */
 .gen__out .pv-secret {
   min-height: 72px;
-  display: flex;
-  align-items: center;
-  word-break: normal;
-  overflow-wrap: anywhere;
-  flex-wrap: wrap;
+  align-content: center;
 }
 .gen__meta {
   display: flex;

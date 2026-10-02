@@ -14,75 +14,6 @@ body {
   min-height: 100dvh;
 }
 
-/* ---------- Brand ---------- */
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-stretch: 122%;
-  font-weight: 780;
-  font-size: 15px;
-  letter-spacing: -0.02em;
-  color: var(--pv-ink);
-}
-.brand__mark {
-  width: 22px;
-  height: 22px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-}
-.brand__index {
-  fill: var(--pv-acc);
-  stroke: none;
-}
-
-/* The full stop on display titles carries the signal color: the one flourish. */
-.dot {
-  color: var(--pv-acc);
-}
-
-/* ---------- Text actions ---------- */
-.link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--pv-ink) !important;
-  font-weight: 600;
-  text-decoration: underline;
-  text-decoration-color: var(--pv-acc);
-  text-decoration-thickness: 1.5px;
-  text-underline-offset: 3px;
-}
-.link:hover {
-  color: var(--pv-acc-text) !important;
-}
-.link--danger {
-  color: var(--pv-danger) !important;
-  text-decoration-color: color-mix(in srgb, var(--pv-danger) 50%, transparent);
-}
-.text-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
-  margin: -4px -6px;
-  border: 0;
-  border-radius: var(--pv-radius-sm);
-  background: none;
-  color: var(--pv-ink-2) !important;
-  font-size: 12.5px;
-  font-weight: 600;
-}
-.text-btn:hover {
-  color: var(--pv-ink) !important;
-  background: var(--pv-raised);
-}
-.text-btn .pv-icon {
-  width: 14px;
-  height: 14px;
-}
-
 /* ---------- Layout helpers ---------- */
 .stack {
   display: flex;
@@ -126,19 +57,6 @@ body {
   width: 6px;
   height: 1.5px;
   background: var(--pv-acc);
-}
-.spinner {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  animation: pv-spin 700ms linear infinite;
-}
-@keyframes pv-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* ---------- Checkbox ---------- */

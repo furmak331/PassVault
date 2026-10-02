@@ -417,7 +417,10 @@ kbd.pv-kbd {
   color: var(--pv-ink);
 }
 /* Revealed passwords read in groups of four, like a card number. */
-.pv-secret[data-revealed='true'] > span:nth-child(4n):not(:last-child) {
+.pv-secret[data-grouped='false'] {
+  word-break: normal;
+}
+.pv-secret[data-grouped='true'] > span:nth-child(4n):not(:last-child) {
   margin-right: 0.3em;
 }
 .pv-secret--lg {
@@ -796,4 +799,209 @@ kbd.pv-kbd {
     opacity: 0;
     transform: translateY(8px);
   }
+}
+
+/* ---------- Shared app pieces: wordmark, links, search, combination field ---------- */
+/* ---------- Brand ---------- */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-stretch: 122%;
+  font-weight: 780;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: var(--pv-ink);
+}
+
+.brand__mark {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.brand__index {
+  fill: var(--pv-acc);
+  stroke: none;
+}
+
+/* The full stop on display titles carries the signal color: the one flourish. */
+.dot {
+  color: var(--pv-acc);
+}
+
+/* ---------- Text actions ---------- */
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--pv-ink) !important;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--pv-acc);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+.link:hover {
+  color: var(--pv-acc-text) !important;
+}
+
+.link--danger {
+  color: var(--pv-danger) !important;
+  text-decoration-color: color-mix(in srgb, var(--pv-danger) 50%, transparent);
+}
+
+.text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border: 0;
+  border-radius: var(--pv-radius-sm);
+  background: none;
+  color: var(--pv-ink-2) !important;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.text-btn:hover {
+  color: var(--pv-ink) !important;
+  background: var(--pv-raised);
+}
+
+.text-btn .pv-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: pv-spin 700ms linear infinite;
+}
+
+@keyframes pv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 8px 0 11px;
+  border-radius: var(--pv-radius);
+  border: 1px solid var(--pv-line-2);
+  background: var(--pv-sunken);
+  color: var(--pv-ink-3);
+  transition:
+    border-color 140ms var(--pv-ease),
+    box-shadow 140ms var(--pv-ease);
+}
+
+.search:focus-within {
+  border-color: var(--pv-acc);
+  box-shadow: 0 0 0 3px var(--pv-acc-soft);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--pv-ink);
+  font: inherit;
+}
+
+.search input:focus {
+  outline: none;
+}
+
+.search input::placeholder {
+  color: var(--pv-ink-3);
+}
+
+.search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+/* The combination entry: one field, one button. */
+.combo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 9px;
+  border: 1px solid var(--pv-line-2);
+  background: var(--pv-sunken);
+  transition:
+    border-color 140ms var(--pv-ease),
+    box-shadow 140ms var(--pv-ease);
+}
+
+.combo:focus-within {
+  border-color: var(--pv-acc);
+  box-shadow: 0 0 0 3px var(--pv-acc-soft);
+}
+
+.combo__input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--pv-ink);
+  font: 600 17px var(--pv-mono);
+  letter-spacing: 0.2em;
+}
+
+.combo__input::placeholder {
+  font-family: var(--pv-sans);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--pv-ink-3);
+}
+
+.combo__input:focus {
+  outline: none;
+}
+
+.combo__go {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border: 0;
+  border-radius: 6px;
+  background: var(--pv-acc);
+  color: var(--pv-acc-ink) !important;
+  transition:
+    opacity 140ms var(--pv-ease),
+    transform 140ms var(--pv-ease);
+}
+
+.combo__go:disabled {
+  opacity: 0.35;
+}
+
+.combo__go:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.combo__go .pv-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.2;
 }
