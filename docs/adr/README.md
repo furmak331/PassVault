@@ -15,3 +15,4 @@ a later record supersedes an earlier one instead.
 | [0007](0007-backups-and-offline.md)     | Backups are the vault; offline without a framework | Accepted                                      |
 | [0008](0008-chrome-extension.md)        | The Chrome extension holds its own vault           | Accepted                                      |
 | [0009](0009-sync-server.md)             | The sync server: opaque sessions, vault revisions  | Accepted                                      |
+| [0010](0010-client-sync.md)             | Sync in the web vault and the extension            | Accepted                                      |

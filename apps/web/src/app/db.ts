@@ -1,9 +1,15 @@
-import type { ItemRecord, VaultHeader, VaultStore } from '@passvaultify/core';
+import type {
+  ItemRecord,
+  SyncSettings,
+  SyncTokens,
+  VaultHeader,
+  VaultStore,
+} from '@passvaultify/core';
 import Dexie, { type EntityTable } from 'dexie';
 import { sanitizeProfile, type Profile } from './profile';
 
 interface MetaRow {
-  key: 'header' | 'profile';
+  key: 'header' | 'profile' | 'sync';
   value: unknown;
 }
 
@@ -58,5 +64,20 @@ export class IdbStore implements VaultStore {
 
   async saveProfile(profile: Profile): Promise<void> {
     await this.db.meta.put({ key: 'profile', value: profile });
+  }
+
+  /** Sync server, account and session tokens. Cleared with the vault. */
+  async loadSync(): Promise<SyncSettings | null> {
+    return ((await this.db.meta.get('sync'))?.value as SyncSettings | undefined) ?? null;
+  }
+
+  async saveSync(settings: SyncSettings | null): Promise<void> {
+    if (settings) await this.db.meta.put({ key: 'sync', value: settings });
+    else await this.db.meta.delete('sync');
+  }
+
+  /** Tokens as last saved by any tab, so tabs don't refresh over each other. */
+  async loadSyncTokens(): Promise<SyncTokens | null> {
+    return (await this.loadSync())?.tokens ?? null;
   }
 }

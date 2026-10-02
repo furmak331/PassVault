@@ -207,6 +207,18 @@ body {
   font-size: 12px;
   color: var(--pv-ink-3);
 }
+.pop__hint--warn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--pv-warn);
+  font: 600 12px var(--pv-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.pop__hint--warn:hover {
+  text-decoration: underline;
+}
 .pop__message {
   font-weight: 600;
   color: var(--pv-ok);

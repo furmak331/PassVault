@@ -586,6 +586,14 @@ kbd.pv-kbd {
   outline: 2px solid var(--pv-acc);
   outline-offset: 1px;
 }
+.pv-seg__opt input:disabled {
+  cursor: not-allowed;
+}
+.pv-seg__opt input:disabled + span {
+  color: var(--pv-ink-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--pv-line);
+}
 
 /* ---------- Card ---------- */
 .pv-card {

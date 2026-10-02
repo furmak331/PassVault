@@ -1,10 +1,17 @@
 import {
+  changePassword,
   createBackup,
+  mergeItemsInto,
   openBackup,
   restoreBackup,
   serializeBackup,
+  SyncEngine,
+  toBase64Url,
   Vault,
   type Fingerprint,
+  type SyncConflict,
+  type SyncSettings,
+  type SyncStatus,
   type VaultBackup,
   type VaultHeader,
   type VaultStore,
@@ -25,6 +32,8 @@ import {
   type ThemeSetting,
 } from './profile';
 import { applyUpdate, useUpdateReady } from './pwa';
+import { useSyncEngine } from './sync';
+import type { SyncActions } from './SyncDialog';
 import { VaultApp } from './VaultApp';
 
 type Phase =
@@ -47,6 +56,16 @@ export interface AppActions {
   exportBackup: () => Promise<void>;
   deleteVault: () => Promise<void>;
   exitDemo: () => void;
+  /** Re-wraps the vault key; on a synced vault, through the server first. */
+  changePassword: (current: string, next: string) => Promise<void>;
+}
+
+/** Everything the vault screens need to show and drive sync. */
+export interface SyncHandle {
+  connection: SyncSettings | null;
+  engine: SyncEngine | null;
+  status: SyncStatus | null;
+  actions: SyncActions;
 }
 
 export function App() {
@@ -57,16 +76,27 @@ export function App() {
     theme: rememberedTheme(),
   }));
   const [phase, setPhase] = useState<Phase>({ name: 'loading' });
+  const [connection, setConnection] = useState<SyncSettings | null>(null);
+  const [conflicts, setConflicts] = useState<{ list: SyncConflict[]; at: number } | null>(null);
+  /** Bumped when the open vault is swapped for another, so its screens start fresh. */
+  const [epoch, setEpoch] = useState(0);
   const theme = useResolvedTheme(profile.theme);
+  const synced = phase.name === 'unlocked' && !session.demo ? phase.vault : null;
+  const { engine, status } = useSyncEngine(synced, connection, idb, (list) =>
+    setConflicts({ list, at: Date.now() }),
+  );
 
   /** Read the vault on this device, if there is one. */
   const loadLocal = useCallback(
     () =>
-      Promise.all([idb.loadHeader(), idb.loadProfile()]).then(([header, saved]) => {
-        setSession({ store: idb, demo: false });
-        setProfile(saved ?? { ...DEFAULT_PROFILE, theme: rememberedTheme() });
-        setPhase(header ? { name: 'locked', header } : { name: 'onboarding' });
-      }),
+      Promise.all([idb.loadHeader(), idb.loadProfile(), idb.loadSync()]).then(
+        ([header, saved, sync]) => {
+          setSession({ store: idb, demo: false });
+          setProfile(saved ?? { ...DEFAULT_PROFILE, theme: rememberedTheme() });
+          setConnection(sync);
+          setPhase(header ? { name: 'locked', header } : { name: 'onboarding' });
+        },
+      ),
     [idb],
   );
 
@@ -174,13 +204,86 @@ export function App() {
       exitDemo();
       return;
     }
+    // Sign this device out of the server, if it can. The server keeps the account.
+    await engine?.client?.logout().catch(() => undefined);
     setPhase((p) => {
       if (p.name === 'unlocked') p.vault.lock();
       return { name: 'loading' };
     });
     await idb.clear();
     await loadLocal();
-  }, [exitDemo, idb, loadLocal, session.demo]);
+  }, [engine, exitDemo, idb, loadLocal, session.demo]);
+
+  const changeMasterPassword = async (current: string, next: string) => {
+    if (phase.name !== 'unlocked') return;
+    const vault = phase.vault;
+    if (!engine?.client) {
+      await vault.changePassword(current, next);
+      return;
+    }
+    // The server must take the new auth key first, or this device couldn't sign in again.
+    const changed = await changePassword(current, next, vault.header);
+    await engine.client.changeMasterPassword(
+      current,
+      vault.header.kdf,
+      toBase64Url(changed.authKey),
+      changed.header,
+    );
+    await vault.applyPasswordChange(changed);
+  };
+
+  const withStorage = async (storageMode: Profile['storageMode']) => {
+    const next = { ...profile, storageMode };
+    await idb.saveProfile(next);
+    setProfile(next);
+    return next;
+  };
+
+  const syncActions: SyncActions = {
+    connected: async (settings) => {
+      await idb.saveSync(settings);
+      await withStorage('self');
+      setConnection(settings);
+    },
+    joinVault: async (settings, header, password) => {
+      if (phase.name !== 'unlocked') return;
+      const items = [...phase.vault.list(), ...phase.vault.trash()].map((i) => i.data);
+      phase.vault.lock();
+      await idb.clear();
+      await idb.saveHeader(header);
+      await idb.saveSync(settings);
+      await withStorage('self');
+      const vault = await Vault.unlock(idb, password);
+      // Fetch the account's items first, so ones this device already had are skipped.
+      await new SyncEngine({
+        vault,
+        settings,
+        saveSettings: (s) => idb.saveSync(s),
+        live: false,
+      }).syncNow();
+      await mergeItemsInto(vault, items);
+      setConnection(settings);
+      setEpoch((e) => e + 1);
+      setPhase({ name: 'unlocked', vault });
+    },
+    disconnect: async () => {
+      await engine?.client?.logout().catch(() => undefined);
+      await idb.saveSync(null);
+      await withStorage('local');
+      setConnection(null);
+    },
+  };
+
+  /** Welcome screen on a new device: sign in and take the account's vault. */
+  const signInNewDevice = async (settings: SyncSettings, header: VaultHeader, password: string) => {
+    await idb.clear();
+    await idb.saveHeader(header);
+    await idb.saveSync(settings);
+    await withStorage('self');
+    const vault = await Vault.unlock(idb, password);
+    setConnection(settings);
+    setPhase({ name: 'unlocked', vault });
+  };
 
   const actions: AppActions = {
     lock,
@@ -189,12 +292,15 @@ export function App() {
     exportBackup,
     deleteVault,
     exitDemo,
+    changePassword: changeMasterPassword,
   };
+  const sync: SyncHandle = { connection, engine, status, actions: syncActions };
 
   return (
     // Keyed by phase so toasts (and their Undo actions) never outlive a lock.
     <ToastProvider key={phase.name}>
       <UpdateNotice />
+      <ConflictNotice conflicts={conflicts} />
       <div className="app" data-phase={phase.name}>
         {phase.name === 'loading' && <div className="app-loading" aria-busy="true" />}
         {phase.name === 'onboarding' && (
@@ -205,6 +311,7 @@ export function App() {
             onRestore={restoreVault}
             onCreate={createVault}
             onDemo={startDemo}
+            onSignIn={signInNewDevice}
             onDone={(vault) => setPhase({ name: 'unlocked', vault })}
           />
         )}
@@ -221,11 +328,34 @@ export function App() {
           />
         )}
         {phase.name === 'unlocked' && (
-          <VaultApp vault={phase.vault} profile={profile} demo={session.demo} actions={actions} />
+          <VaultApp
+            key={epoch}
+            vault={phase.vault}
+            profile={profile}
+            demo={session.demo}
+            actions={actions}
+            sync={sync}
+          />
         )}
       </div>
     </ToastProvider>
   );
+}
+
+/** Says when sync kept two versions of an item, so nothing was silently overwritten. */
+function ConflictNotice({ conflicts }: { conflicts: { list: SyncConflict[]; at: number } | null }) {
+  const toast = useToast();
+  useEffect(() => {
+    if (!conflicts?.list.length) return;
+    const [first] = conflicts.list;
+    toast(
+      conflicts.list.length === 1 && first
+        ? `"${first.title}" changed on two devices. Both versions are kept; the other is marked (conflict).`
+        : `${conflicts.list.length} items changed on two devices. Both versions of each are kept, marked (conflict).`,
+      { duration: 10_000 },
+    );
+  }, [conflicts, toast]);
+  return null;
 }
 
 /** Offers a new version once its files are cached, instead of reloading on its own. */

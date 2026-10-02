@@ -1,6 +1,7 @@
 import {
   changePassword,
   createVault,
+  type UnlockedVault,
   decryptItem,
   encryptItem,
   unlockVault,
@@ -29,6 +30,21 @@ export interface VaultItem {
   data: ItemData;
 }
 
+/** What changed, and whether it was this device or a sync from another one. */
+export interface VaultChange {
+  source: 'local' | 'remote';
+  ids: string[];
+}
+
+/** An item as the sync server holds it (spec/openapi.yaml ItemRecord). */
+export interface RemoteRecord {
+  id: string;
+  revision: number;
+  updatedAt: string;
+  deleted: boolean;
+  data?: string;
+}
+
 export interface VaultOptions {
   /** Clock override for tests. */
   now?: () => Date;
@@ -48,7 +64,9 @@ export class VaultLockedError extends Error {
 export class Vault {
   private key: CryptoKey | null;
   private readonly items = new Map<string, VaultItem>();
-  private readonly revisions = new Map<string, number>();
+  /** Every stored record, ciphertext included: what sync pushes. */
+  private readonly records = new Map<string, ItemRecord>();
+  private readonly listeners = new Set<(change: VaultChange) => void>();
   private readonly now: () => Date;
 
   private constructor(
@@ -115,7 +133,7 @@ export class Vault {
   ): Promise<Vault> {
     const vault = new Vault(store, header, vaultKey, options);
     for (const record of await store.loadRecords()) {
-      vault.revisions.set(record.id, record.revision);
+      vault.records.set(record.id, record);
       if (record.deleted || !record.data) continue;
       const data = await decryptItem<ItemData>(vaultKey, record.id, record.data);
       vault.items.set(record.id, {
@@ -194,18 +212,118 @@ export class Vault {
   /** Delete permanently. Leaves a tombstone so other devices learn about it. */
   async purge(id: string): Promise<void> {
     this.require(id);
+    const previous = this.records.get(id);
+    await this.saveRecord({
+      id,
+      revision: (previous?.revision ?? 0) + 1,
+      updatedAt: this.timestamp(),
+      deleted: true,
+      base: previous?.base ?? 0,
+      pending: true,
+    });
     this.items.delete(id);
-    const revision = (this.revisions.get(id) ?? 0) + 1;
-    this.revisions.set(id, revision);
-    await this.store.saveRecord({ id, revision, updatedAt: this.timestamp(), deleted: true });
+    this.emit('local', [id]);
   }
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     this.assertUnlocked();
-    const changed = await changePassword(currentPassword, newPassword, this.headerValue);
+    await this.applyPasswordChange(
+      await changePassword(currentPassword, newPassword, this.headerValue),
+    );
+  }
+
+  /**
+   * Store a header re-wrapped by core's changePassword. Synced vaults compute
+   * the change first, send it to the server, then apply it here.
+   */
+  async applyPasswordChange(changed: UnlockedVault): Promise<void> {
+    this.assertUnlocked();
+    if (changed.header.fingerprint !== this.headerValue.fingerprint) {
+      throw new Error('That header belongs to a different vault');
+    }
     await this.store.saveHeader(changed.header);
     this.headerValue = changed.header;
     this.key = changed.vaultKey;
+  }
+
+  /** Take a header from the sync server after the password was changed on another device. */
+  async adoptHeader(header: VaultHeader): Promise<void> {
+    if (header.fingerprint !== this.headerValue.fingerprint) {
+      throw new Error('That header belongs to a different vault');
+    }
+    await this.store.saveHeader(header);
+    this.headerValue = header;
+  }
+
+  // ---------- Sync ----------
+
+  /** Called after every write, local or from sync. Returns an unsubscribe function. */
+  onChange(listener: (change: VaultChange) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  /** Records changed here that the server hasn't accepted yet. */
+  pendingChanges(): ItemRecord[] {
+    return [...this.records.values()].filter((r) => r.pending).map((r) => ({ ...r }));
+  }
+
+  /** Where an item stands with the server, or undefined if this device has never seen it. */
+  syncInfo(id: string): { base: number; pending: boolean; deleted: boolean } | undefined {
+    const record = this.records.get(id);
+    if (!record) return undefined;
+    return { base: record.base ?? 0, pending: record.pending ?? false, deleted: record.deleted };
+  }
+
+  /** Decrypt an item from the server without storing it. Throws DecryptionError if it was tampered with. */
+  async openRemote(remote: RemoteRecord): Promise<ItemData | null> {
+    const key = this.assertUnlocked();
+    if (remote.deleted || !remote.data) return null;
+    return decryptItem<ItemData>(key, remote.id, remote.data);
+  }
+
+  /** Store the server's copy of an item, replacing this device's. */
+  async acceptRemote(remote: RemoteRecord): Promise<void> {
+    const data = await this.openRemote(remote);
+    const previous = this.records.get(remote.id);
+    const revision = (previous?.revision ?? 0) + 1;
+    await this.saveRecord({
+      id: remote.id,
+      revision,
+      updatedAt: remote.updatedAt,
+      deleted: remote.deleted,
+      ...(data && remote.data ? { data: remote.data } : {}),
+      base: remote.revision,
+      pending: false,
+    });
+    if (data)
+      this.items.set(remote.id, { id: remote.id, revision, updatedAt: remote.updatedAt, data });
+    else this.items.delete(remote.id);
+    this.emit('remote', [remote.id]);
+  }
+
+  /**
+   * The server accepted a push. If the item changed again while the push was
+   * in flight, it stays pending, now based on the server's new revision.
+   */
+  async markPushed(id: string, pushedRevision: number, serverRevision: number): Promise<void> {
+    const record = this.records.get(id);
+    if (!record) return;
+    const unchanged = record.revision === pushedRevision;
+    await this.saveRecord({ ...record, base: serverRevision, pending: !unchanged });
+  }
+
+  /** Keep this device's change, but base it on the server's newer revision so the push succeeds. */
+  async rebase(id: string, serverRevision: number): Promise<void> {
+    const record = this.records.get(id);
+    if (record) await this.saveRecord({ ...record, base: serverRevision, pending: true });
+  }
+
+  /** Mark everything as never synced: for uploading to a new account, or a server that lost data. */
+  async resetSync(): Promise<void> {
+    for (const record of [...this.records.values()]) {
+      await this.saveRecord({ ...record, base: 0, pending: true });
+    }
   }
 
   /** All distinct tags on items not in Trash, alphabetically. */
@@ -220,20 +338,31 @@ export class Vault {
 
   private async write(id: string, data: ItemData): Promise<VaultItem> {
     const key = this.assertUnlocked();
-    const revision = (this.revisions.get(id) ?? 0) + 1;
+    const previous = this.records.get(id);
+    const revision = (previous?.revision ?? 0) + 1;
     const updatedAt = this.timestamp();
-    const record: ItemRecord = {
+    await this.saveRecord({
       id,
       revision,
       updatedAt,
       deleted: false,
       data: await encryptItem(key, id, data),
-    };
-    await this.store.saveRecord(record);
-    this.revisions.set(id, revision);
+      base: previous?.base ?? 0,
+      pending: true,
+    });
     const item: VaultItem = { id, revision, updatedAt, data };
     this.items.set(id, item);
+    this.emit('local', [id]);
     return item;
+  }
+
+  private async saveRecord(record: ItemRecord) {
+    await this.store.saveRecord(record);
+    this.records.set(record.id, record);
+  }
+
+  private emit(source: VaultChange['source'], ids: string[]) {
+    for (const listener of this.listeners) listener({ source, ids });
   }
 
   private async purgeExpiredTrash() {

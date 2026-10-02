@@ -120,7 +120,7 @@ export function Switch({ label, checked, onChange }: SwitchProps) {
 export interface SegmentedProps<T extends string> {
   label: string;
   value: T;
-  options: readonly { value: T; label: string }[];
+  options: readonly { value: T; label: string; disabled?: boolean }[];
   onChange: (value: T) => void;
 }
 
@@ -141,6 +141,7 @@ export function Segmented<T extends string>({
             name={name}
             value={o.value}
             checked={o.value === value}
+            disabled={o.disabled}
             onChange={() => onChange(o.value)}
           />
           <span>{o.label}</span>

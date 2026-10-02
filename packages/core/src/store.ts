@@ -13,6 +13,13 @@ export interface ItemRecord {
   deleted: boolean;
   /** pvf1 envelope of the item JSON. */
   data?: string;
+  /**
+   * Sync only: the server revision this copy is based on, 0 if the server has
+   * never seen it. Sent as `expectedRevision` when pushing.
+   */
+  base?: number;
+  /** Sync only: changed here and not yet accepted by the server. */
+  pending?: boolean;
 }
 
 /** Where a vault's encrypted data lives. Implementations never see plaintext. */

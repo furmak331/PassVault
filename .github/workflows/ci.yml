@@ -103,8 +103,21 @@ jobs:
             java -jar apps/server/target/passvaultify-server.jar > "$RUNNER_TEMP/server.log" 2>&1 &
           for i in $(seq 1 60); do curl -sf localhost:8080/health && break; sleep 1; done
           SYNC_SERVER_URL=http://localhost:8080 pnpm --filter @passvaultify/core exec vitest run test/interop.test.ts
+      # Both apps syncing through a real server, in Chromium. A second server
+      # instance, so the interop test's sign-ins don't count against its rate limits.
+      - run: pnpm --filter @passvaultify/extension exec playwright-core install --with-deps chromium
+      - name: Sync end to end (web vault and extension)
+        run: |
+          PASSVAULTIFY_DATA_DIR="$RUNNER_TEMP/pv-e2e" PORT=8081 \
+            java -jar apps/server/target/passvaultify-server.jar > "$RUNNER_TEMP/server-e2e.log" 2>&1 &
+          pnpm --filter @passvaultify/web build
+          pnpm --filter @passvaultify/web exec vite preview --port 4173 --strictPort > "$RUNNER_TEMP/preview.log" 2>&1 &
+          pnpm --filter @passvaultify/extension build:e2e
+          for i in $(seq 1 60); do curl -sf localhost:8081/health && curl -sf localhost:4173 > /dev/null && break; sleep 1; done
+          SYNC_SERVER_URL=http://localhost:8081 node apps/web/e2e/sync.mjs
+          SYNC_SERVER_URL=http://localhost:8081 node apps/extension/e2e/sync.mjs
       - if: failure()
-        run: cat "$RUNNER_TEMP/server.log"
+        run: cat "$RUNNER_TEMP/server.log" "$RUNNER_TEMP"/server-e2e.log || true
       - run: docker build -t passvaultify-server apps/server
 
   vectors:

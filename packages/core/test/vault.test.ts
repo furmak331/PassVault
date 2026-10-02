@@ -135,7 +135,14 @@ describe('Vault', () => {
     await vault.purge(item.id);
     expect(vault.get(item.id)).toBeUndefined();
     expect(store.rawRecords()).toEqual([
-      { id: item.id, revision: 2, updatedAt: expect.any(String), deleted: true },
+      {
+        id: item.id,
+        revision: 2,
+        updatedAt: expect.any(String),
+        deleted: true,
+        base: 0,
+        pending: true,
+      },
     ]);
   });
 

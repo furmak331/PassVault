@@ -15,6 +15,11 @@ import { parse } from 'yaml';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   changePassword,
+  checkServer,
+  createSyncAccount,
+  signInToSync,
+  SyncEngine,
+  type SyncSettings,
   decryptItem,
   DecryptionError,
   encryptItem,
@@ -362,5 +367,68 @@ describe.skipIf(!SERVER)('sync server interop', () => {
     ).rejects.toMatchObject({
       status: 401,
     });
+  });
+});
+
+describe.skipIf(!SERVER)('sync engine against the server', () => {
+  it('two devices stay in step live, conflicts keep both versions', async () => {
+    const email2 = `engine-${toBase64Url(crypto.getRandomValues(new Uint8Array(6))).toLowerCase()}@example.com`;
+    const { server, info } = await checkServer(SERVER as string, specFetch);
+
+    // Device A has a vault and makes the account from it.
+    const storeA = new MemoryStore();
+    const { vault: a } = await Vault.create(storeA, password, { iterations });
+    const item = await a.add({ type: 'login', title: 'Bank', password: 'one' });
+    const connect = {
+      server,
+      serverFingerprint: info.fingerprint,
+      email: email2,
+      password,
+      fetch: specFetch,
+    };
+    const settingsA = await createSyncAccount(a, {
+      ...connect,
+      device: { name: 'A', kind: 'web' },
+    });
+
+    // Device B signs in with nothing on it.
+    const { settings: settingsB, header } = await signInToSync({
+      ...connect,
+      device: { name: 'B', kind: 'extension' },
+    });
+    const storeB = new MemoryStore();
+    await storeB.saveHeader(header);
+    const b = await Vault.unlock(storeB, password);
+
+    const engine = (vault: Vault, settings: SyncSettings) =>
+      new SyncEngine({ vault, settings, saveSettings: () => undefined, fetch: specFetch });
+    const engineA = engine(a, settingsA);
+    const engineB = engine(b, settingsB);
+    engineA.start();
+    engineB.start();
+    try {
+      await until(() => b.get(item.id)?.data.title === 'Bank');
+
+      // A change on B arrives on A without anyone asking.
+      await b.update(item.id, { password: 'two' });
+      await until(() => (a.get(item.id)?.data as { password?: string }).password === 'two');
+
+      // Both change it while B's stream is down: both versions survive.
+      engineB.stop();
+      await a.update(item.id, { password: 'from-a' });
+      await until(() => engineA.status.pending === 0 && engineA.status.state === 'idle');
+      await b.update(item.id, { password: 'from-b' });
+      await engineB.syncNow();
+      expect(
+        b
+          .list()
+          .map((i) => i.data.title)
+          .sort(),
+      ).toEqual(['Bank', 'Bank (conflict)']);
+      await until(() => a.list().length === 2);
+    } finally {
+      engineA.stop();
+      engineB.stop();
+    }
   });
 });
