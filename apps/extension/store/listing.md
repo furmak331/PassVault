@@ -30,7 +30,7 @@ FILLS WHERE IT BELONGS
 ZERO KNOWLEDGE
 • Your vault is encrypted on your device with AES-256-GCM, using a key derived from your master password (PBKDF2-SHA256, 600,000 iterations).
 • Your master password is never stored or sent anywhere.
-• No accounts, no servers, no analytics, no ads. PassVaultify makes no network requests with your data.
+• No analytics, no ads. Without sync, nothing leaves your browser.
 
 LOCKS ITSELF
 • After 1, 5, 15 or 60 idle minutes, or only when Chrome closes. You choose.
@@ -41,9 +41,14 @@ ASKS FOR ALMOST NOTHING
 • No permission warnings at install. PassVaultify can only touch a tab when you click it.
 • "Offer to save new logins" is off by default. Turn it on and Chrome asks you first; turn it off and the access goes with it.
 
+SYNC, IF YOU WANT IT
+• Keep the extension and the PassVaultify web vault in step through a sync server you run.
+• The server only ever holds ciphertext, and only a key derived from your master password: it can't read your vault.
+• Check the server's fingerprint before you sign in, see your signed-in devices, and sign any of them out.
+
 ALSO
 • Password generator: random characters or a passphrase of real words, colour-coded so a 0 never passes for an O.
-• Works with the PassVaultify web vault: bring your vault across with an encrypted backup, and send new logins back the same way.
+• No server? Bring your vault across from the web vault with an encrypted backup instead.
 • Light and dark themes, four signal colours.
 
 PassVaultify is open source: github.com/furmak331/PassVault
@@ -79,7 +84,7 @@ leave it empty.
 
 **Single purpose:**
 
-> PassVaultify stores the user's passwords in an encrypted vault in their browser and fills them into sign-in forms on the sites they were saved for.
+> PassVaultify stores the user's passwords in an encrypted vault in their browser and fills them into sign-in forms on the sites they were saved for, optionally keeping the encrypted vault in step with the user's other devices through a sync server the user chooses.
 
 **Permission justifications:**
 
@@ -102,7 +107,9 @@ device:
 - Personally identifiable information: no
 - Health information: no
 - Financial and payment information: no
-- **Authentication information: yes** (the passwords the user saves)
+- **Authentication information: yes** (the passwords the user saves; if the
+  user connects a sync server, they're sent to it encrypted, along with the
+  account email)
 - Personal communications: no
 - Location: no
 - Web history: no
@@ -122,3 +129,21 @@ Then tick all three certifications:
 - **Visibility:** Public (or Unlisted for a soft launch: only people with the link can find it).
 - **Regions:** All regions.
 - **Pricing:** Free.
+
+## Updating to 0.2.0 (sync)
+
+Version 0.2.0 adds optional sync. When you upload it, in the dashboard:
+
+1. **Store listing:** replace the description with the one above (it gains the
+   "Sync, if you want it" section).
+2. **Privacy practices:** replace the single-purpose statement with the one
+   above. Keep the same data-usage boxes; the "Authentication information" note
+   now covers the encrypted copy sent to the sync server the user chooses.
+   That's sending data to provide the feature the user turned on, which the
+   certifications allow.
+3. **Privacy policy:** nothing to change in the dashboard. The page at
+   `furmak331.github.io/PassVault/privacy.html` already describes sync once
+   this version's code is merged.
+
+No new permissions: the extension talks to the server like any web page
+would, and the server's CORS settings allow it.

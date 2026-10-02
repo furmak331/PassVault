@@ -3,7 +3,8 @@ import { syncCaptureScript } from '../shared/capture';
 import { fillLogin } from '../shared/fill';
 import type { ExtensionMessage } from '../shared/messages';
 import { clearPending, setPending } from '../shared/pending';
-import { AUTO_LOCK_ALARM, lock, openVault, touch } from '../shared/session';
+import { AUTO_LOCK_ALARM, isUnlocked, lock, openVault, touch } from '../shared/session';
+import { runSync, scheduleSync, SYNC_ALARM } from '../shared/sync';
 
 /**
  * The background worker. It holds no secrets of its own: the session key lives
@@ -14,6 +15,7 @@ async function init() {
   // Explicit, though it's the default: content scripts can't read the session.
   await chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
   await syncCaptureScript();
+  await scheduleSync();
 }
 chrome.runtime.onInstalled.addListener(() => void init());
 chrome.runtime.onStartup.addListener(() => void init());
@@ -21,6 +23,12 @@ chrome.runtime.onStartup.addListener(() => void init());
 // Auto-lock after the chosen idle time, and whenever the computer locks.
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === AUTO_LOCK_ALARM) void lock();
+  // Periodic sync, only while unlocked: a locked vault has no key to decrypt with.
+  if (alarm.name === SYNC_ALARM) {
+    void isUnlocked().then(async (unlocked) => {
+      if (unlocked) await runSync();
+    });
+  }
 });
 chrome.idle.onStateChanged.addListener((state) => {
   if (state === 'locked') void lock();
@@ -57,6 +65,15 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, reply) 
   if (sender.id !== chrome.runtime.id) return false;
   if (message.type === 'sync-capture') {
     void syncCaptureScript().then(reply);
+    return true;
+  }
+  if (message.type === 'sync-vault') {
+    // Extension pages only (their URL is this extension's): content scripts
+    // report the web page's URL, and have no business starting a sync.
+    if (!sender.url?.startsWith(chrome.runtime.getURL(''))) return false;
+    void scheduleSync()
+      .then(runSync)
+      .then(reply, () => reply(null));
     return true;
   }
   if (message.type === 'captured') {

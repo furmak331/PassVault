@@ -38,7 +38,9 @@ import {
   type ExtensionProfile,
   type Theme,
 } from '../shared/store';
+import { loadSyncSettings } from '../shared/sync';
 import { Brand, useBodyTheme, useRings } from '../shared/ui';
+import { disconnect, SignInForm, SyncSection } from './Sync';
 
 interface State {
   profile: ExtensionProfile;
@@ -138,7 +140,14 @@ function Welcome({ onStart, onDone }: SetupProps) {
       </section>
       <div className="setup__columns">
         <Panel
-          step="Recommended"
+          step="Syncing already?"
+          title="Sign in to your server"
+          intro="If your vault lives on a PassVaultify sync server, sign in and it comes down here, still encrypted."
+        >
+          <SignInForm onStart={onStart} onDone={onDone} />
+        </Panel>
+        <Panel
+          step="From a backup"
           title="Bring your vault from the web app"
           intro="In the PassVaultify web app, open Settings and choose Download under Encrypted backup. Then load that file here."
         >
@@ -514,6 +523,10 @@ function Settings({
         </Row>
       </Section>
 
+      <Section title="Sync">
+        <SyncSection unlocked={state.unlocked} />
+      </Section>
+
       <Section title="Backups and the web app">
         <Row
           label="Download encrypted backup"
@@ -742,6 +755,8 @@ function RemoveDialog({
           if (typed.trim().toLowerCase() !== 'remove') return;
           void (async () => {
             await lock();
+            const sync = await loadSyncSettings();
+            if (sync) await disconnect(sync);
             await new ChromeStore().clear();
             onOpenChange(false);
             onRemoved();

@@ -21,7 +21,9 @@ import {
   TextField,
 } from '@passvaultify/ui';
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
+import type { SyncStatus } from '@passvaultify/core';
 import { FILL_MESSAGES, fillLogin } from '../shared/fill';
+import { send } from '../shared/messages';
 import { clearPending, getPending, type PendingLogin } from '../shared/pending';
 import { lock, openVault, touch, unlock, vaultHeader } from '../shared/session';
 import { loadProfile, type ExtensionProfile } from '../shared/store';
@@ -47,7 +49,17 @@ export function Popup() {
   const [profile, setProfile] = useState<ExtensionProfile | null>(null);
   const [phase, setPhase] = useState<Phase>({ name: 'loading' });
   const [tab, setTab] = useState<chrome.tabs.Tab | null>(null);
+  const [sync, setSync] = useState<SyncStatus | null>(null);
   useBodyTheme(profile);
+
+  /** Pull what other devices changed, then show it. */
+  const syncAndRefresh = () =>
+    void (send({ type: 'sync-vault' }) as Promise<SyncStatus | null>).then(async (status) => {
+      setSync(status);
+      if (!status) return;
+      const fresh = await openVault();
+      if (fresh) setPhase((p) => (p.name === 'unlocked' ? { name: 'unlocked', vault: fresh } : p));
+    });
 
   useEffect(() => {
     void Promise.all([loadProfile(), vaultHeader(), targetTab(), openVault()]).then(
@@ -58,6 +70,7 @@ export function Popup() {
         else if (vault) {
           void touch();
           setPhase({ name: 'unlocked', vault });
+          syncAndRefresh();
         } else setPhase({ name: 'locked', header });
       },
     );
@@ -70,7 +83,10 @@ export function Popup() {
       <LockView
         header={phase.header}
         profile={profile}
-        onUnlocked={(vault) => setPhase({ name: 'unlocked', vault })}
+        onUnlocked={(vault) => {
+          setPhase({ name: 'unlocked', vault });
+          syncAndRefresh();
+        }}
       />
     );
   }
@@ -78,6 +94,7 @@ export function Popup() {
     <VaultView
       vault={phase.vault}
       tab={tab}
+      sync={sync}
       onLock={() => {
         void lock().then(() => setPhase({ name: 'locked', header: phase.vault.header }));
       }}
@@ -215,10 +232,12 @@ function searchItems(items: VaultItem[], query: string): VaultItem[] {
 function VaultView({
   vault,
   tab,
+  sync,
   onLock,
 }: {
   vault: Vault;
   tab: chrome.tabs.Tab | null;
+  sync: SyncStatus | null;
   onLock: () => void;
 }) {
   const [, setRevision] = useState(0);
@@ -229,6 +248,17 @@ function VaultView({
 
   const url = isWebPage(tab?.url) ? tab?.url : undefined;
   const host = hostLabel(url);
+
+  // Every save here goes to the sync server too. The background does it, so it
+  // finishes even if the popup closes first.
+  useEffect(
+    () =>
+      vault.onChange((change) => {
+        if (change.source === 'local') void send({ type: 'sync-vault' });
+      }),
+    [vault],
+  );
+  const syncNeedsYou = sync?.state === 'signed-out' || sync?.state === 'error';
 
   useEffect(() => {
     if (tab?.id === undefined) return;
@@ -360,6 +390,10 @@ function VaultView({
           <span className="pop__message" data-tone={message.tone} role="status">
             {message.text}
           </span>
+        ) : syncNeedsYou ? (
+          <button type="button" className="pop__hint pop__hint--warn" onClick={openSettings}>
+            Sync needs you. Open settings
+          </button>
         ) : (
           <span className="pop__hint">Only fills on the site a login was saved for.</span>
         )}
