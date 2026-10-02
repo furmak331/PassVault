@@ -91,6 +91,8 @@ const paths = {
   ),
   list: <path d="M4 6h16M4 12h16M4 18h10" />,
   back: <path d="M15 5l-7 7 7 7" />,
+  arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
+  type: <path d="M4 7V5h16v2M12 5v14M9 19h6" />,
   history: (
     <>
       <path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4" />

@@ -1,6 +1,6 @@
 import type { ItemRecord, VaultHeader, VaultStore } from '@passvaultify/core';
 import Dexie, { type EntityTable } from 'dexie';
-import { DEFAULT_PROFILE, type Profile } from './profile';
+import { sanitizeProfile, type Profile } from './profile';
 
 interface MetaRow {
   key: 'header' | 'profile';
@@ -53,7 +53,7 @@ export class IdbStore implements VaultStore {
 
   async loadProfile(): Promise<Profile | null> {
     const row = await this.db.meta.get('profile');
-    return row ? { ...DEFAULT_PROFILE, ...(row.value as Partial<Profile>) } : null;
+    return row ? sanitizeProfile(row.value as Partial<Profile>) : null;
   }
 
   async saveProfile(profile: Profile): Promise<void> {

@@ -73,15 +73,50 @@ function arcPath(radius: number, start: number, end: number): string {
   return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${radius} ${radius} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
 }
 
+const BEZEL_TICKS = 60;
+
 export interface FingerprintProps {
   bytes: Uint8Array;
   size?: number;
-  /** Show a lock in the middle (lock screen) or nothing (compact headers). */
-  glyph?: 'lock' | 'none';
+  /** Lock glyph in the middle (closed or open), or nothing for compact uses. */
+  glyph?: 'lock' | 'unlock' | 'none';
   /** Rotates rings in alternating directions, e.g. while typing a password. */
   turn?: number;
+  /** Draws the graduated bezel and index mark of a combination dial. */
+  bezel?: boolean;
+  /** Fraction of bezel ticks lit, clockwise from the index (0 to 1). */
+  lit?: number;
   /** Accessible description, e.g. the fingerprint code. */
   label?: string;
+}
+
+function Bezel({ lit }: { lit: number }) {
+  const on = Math.round(Math.max(0, Math.min(1, lit)) * BEZEL_TICKS);
+  return (
+    <g>
+      <circle className="pv-fp__bezel" cx={CENTER} cy={CENTER} r={60.5} />
+      {Array.from({ length: BEZEL_TICKS }, (_, i) => {
+        const major = i % 5 === 0;
+        const a = (i / BEZEL_TICKS) * Math.PI * 2 - Math.PI / 2;
+        const r0 = major ? 62 : 62.5;
+        const r1 = major ? 67 : 65;
+        const cls = ['pv-fp__tick', major && 'pv-fp__tick--major', i < on && 'is-lit']
+          .filter(Boolean)
+          .join(' ');
+        return (
+          <line
+            key={i}
+            className={cls}
+            x1={(CENTER + r0 * Math.cos(a)).toFixed(2)}
+            y1={(CENTER + r0 * Math.sin(a)).toFixed(2)}
+            x2={(CENTER + r1 * Math.cos(a)).toFixed(2)}
+            y2={(CENTER + r1 * Math.sin(a)).toFixed(2)}
+          />
+        );
+      })}
+      <path className="pv-fp__index" d={`M${CENTER - 3} -11L${CENTER + 3} -11L${CENTER} -6.5Z`} />
+    </g>
+  );
 }
 
 export function Fingerprint({
@@ -89,6 +124,8 @@ export function Fingerprint({
   size = 168,
   glyph = 'lock',
   turn = 0,
+  bezel = false,
+  lit = 0,
   label,
 }: FingerprintProps) {
   const arcs = fingerprintArcs(bytes);
@@ -97,13 +134,14 @@ export function Fingerprint({
   return (
     <svg
       className="pv-fp"
-      viewBox="0 0 120 120"
+      viewBox={bezel ? '-13 -13 146 146' : '0 0 120 120'}
       width={size}
       height={size}
       role={label ? 'img' : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
     >
+      {bezel && <Bezel lit={lit} />}
       {RINGS.map((r, ring) => (
         <g
           key={ring}
@@ -122,13 +160,13 @@ export function Fingerprint({
         </g>
       ))}
       <circle className="pv-fp__core" cx={CENTER} cy={CENTER} r={coreRadius} />
-      {glyph === 'lock' && (
+      {glyph !== 'none' && (
         <g
           className="pv-fp__glyph"
           transform={`translate(${CENTER - 12 * scale} ${CENTER - 12.5 * scale}) scale(${scale})`}
         >
           <rect x="5" y="11" width="14" height="10" rx="2" />
-          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+          <path d={glyph === 'unlock' ? 'M8 11V8a4 4 0 0 1 7.7-1.6' : 'M8 11V8a4 4 0 0 1 8 0v3'} />
         </g>
       )}
     </svg>

@@ -15,13 +15,13 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { DEMO_PASSWORD, useDemoVault, type DemoItem } from './useDemoVault';
 
 type Theme = 'graphite' | 'porcelain';
-type Accent = 'cobalt' | 'jade' | 'amber' | 'rose';
+type Accent = 'signal' | 'cobalt' | 'jade' | 'mono';
 
 const ACCENTS: { value: Accent; label: string; swatch: string }[] = [
-  { value: 'cobalt', label: 'Cobalt', swatch: '#6f8bff' },
-  { value: 'jade', label: 'Jade', swatch: '#2fb38a' },
-  { value: 'amber', label: 'Amber', swatch: '#e0a43a' },
-  { value: 'rose', label: 'Rose', swatch: '#e86a8a' },
+  { value: 'signal', label: 'Signal orange', swatch: '#ec4a0f' },
+  { value: 'cobalt', label: 'Cobalt', swatch: '#2f55e8' },
+  { value: 'jade', label: 'Jade', swatch: '#0b7f58' },
+  { value: 'mono', label: 'Monochrome', swatch: '#151513' },
 ];
 
 const TOKENS = [
@@ -45,11 +45,11 @@ function initialTheme(): Theme {
 
 export function Specimen() {
   const [theme, setTheme] = useState<Theme>(initialTheme);
-  const [accent, setAccent] = useState<Accent>('cobalt');
+  const [accent, setAccent] = useState<Accent>('signal');
   const { vault, tryUnlock, decryptDemo } = useDemoVault();
 
   useEffect(() => {
-    document.body.style.background = theme === 'graphite' ? '#0b0d11' : '#f3f4f6';
+    document.body.style.background = theme === 'graphite' ? '#0e0e0c' : '#f1eee6';
   }, [theme]);
 
   return (

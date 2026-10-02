@@ -1,6 +1,6 @@
-import { DecryptionError, type VaultHeader } from '@passvaultify/core';
-import { Button, DataChip, Dialog, Fingerprint, TextField } from '@passvaultify/ui';
-import { useRef, useState, type FormEvent } from 'react';
+import { DecryptionError, type Vault, type VaultHeader } from '@passvaultify/core';
+import { Button, DataChip, Dialog, Fingerprint, Icon } from '@passvaultify/ui';
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { DeleteVaultDialog } from './DeleteVaultDialog';
 import { DEMO_PASSWORD } from './demo';
 import { useRings } from './hooks';
@@ -11,16 +11,23 @@ export interface LockScreenProps {
   header: VaultHeader;
   profile: Profile;
   demo: boolean;
-  onUnlock: (password: string) => Promise<void>;
+  /** Derive keys and decrypt. Rejects with DecryptionError on a wrong password. */
+  unlock: (password: string) => Promise<Vault>;
+  /** Called once the unlock animation has played. */
+  onOpened: (vault: Vault) => void;
   onDeleteVault: () => Promise<void>;
   onExitDemo: () => void;
 }
 
-function shake(el: HTMLElement | null) {
-  if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+type State = 'idle' | 'working' | 'wrong' | 'open';
+
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function wobble(el: Element | null) {
+  if (!el || reducedMotion()) return;
   el.animate(
-    [0, -8, 7, -5, 3, 0].map((x) => ({ transform: `translateX(${x}px)` })),
-    { duration: 360, easing: 'ease-out' },
+    [0, -7, 6, -4, 2, 0].map((deg) => ({ transform: `rotate(${deg}deg)` })),
+    { duration: 420, easing: 'ease-out' },
   );
 }
 
@@ -28,114 +35,165 @@ export function LockScreen({
   header,
   profile,
   demo,
-  onUnlock,
+  unlock,
+  onOpened,
   onDeleteVault,
   onExitDemo,
 }: LockScreenProps) {
   const rings = useRings(header.fingerprint);
+  const inputId = useId();
   const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState<State>('idle');
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [capsLock, setCapsLock] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const dialRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // While keys are derived (a deliberately slow step), the bezel fills like a gauge.
+  useEffect(() => {
+    if (state !== 'working') return;
+    const timer = setInterval(() => setProgress((p) => Math.min(0.9, p + 0.025)), 30);
+    return () => clearInterval(timer);
+  }, [state]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!password || busy) return;
-    setBusy(true);
+    if (!password || state === 'working' || state === 'open') return;
+    setState('working');
+    setProgress(0);
     setError(null);
     try {
-      await onUnlock(password);
+      const vault = await unlock(password);
+      setProgress(1);
+      setState('open');
+      setTimeout(() => onOpened(vault), reducedMotion() ? 0 : 720);
     } catch (err) {
-      setBusy(false);
+      setState('wrong');
+      setProgress(0);
       if (err instanceof DecryptionError) {
         setError(
           password.toLowerCase() === 'password'
             ? "That's the most common password in the world, so it isn't this one."
-            : "That password didn't unlock this vault. Check Caps Lock and try again.",
+            : "That didn't open this vault. Check Caps Lock and try again.",
         );
       } else {
         setError(`Couldn't unlock the vault: ${err instanceof Error ? err.message : String(err)}`);
       }
-      shake(cardRef.current);
+      wobble(dialRef.current);
       requestAnimationFrame(() => inputRef.current?.select());
     }
   };
 
+  const checkCaps = (e: KeyboardEvent<HTMLInputElement>) =>
+    setCapsLock(e.getModifierState('CapsLock'));
+
+  const turn = state === 'open' ? 360 : state === 'working' ? 120 : password.length * 9;
+
   return (
-    <main className="lock">
-      <header className="lock__top">
+    <main className="lock" data-state={state}>
+      <header className="lock__bar">
         <Brand />
         <DataChip mode={demo ? 'local' : profile.storageMode} />
       </header>
-      <div className="lock__card pv-card" ref={cardRef}>
-        <div className="lock__fp" data-busy={busy || undefined}>
+
+      <div className="lock__stage">
+        <div className="lock__dial" ref={dialRef}>
           {rings ? (
             <Fingerprint
               bytes={rings}
-              size={176}
-              turn={busy ? 180 : password.length * 9}
+              size={340}
+              bezel
+              lit={progress}
+              turn={turn}
+              glyph={state === 'open' ? 'unlock' : 'lock'}
               label={`Vault fingerprint ${header.fingerprint}`}
             />
           ) : (
-            <span className="lock__fp-placeholder" />
+            <span className="lock__dial-placeholder" />
           )}
         </div>
-        <div className="lock__id">
-          <h1 className="lock__name">{profile.vaultName}</h1>
-          <p className="pv-fp-code">{header.fingerprint}</p>
-        </div>
-        <form className="lock__form" onSubmit={(e) => void submit(e)}>
-          <TextField
-            ref={inputRef}
-            label="Master password"
-            hideLabel
-            type="password"
-            placeholder="Master password"
-            autoComplete="current-password"
-            autoFocus
-            spellCheck={false}
-            value={password}
-            readOnly={busy}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setError(null);
-            }}
-          />
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
-          <Button variant="primary" size="lg" type="submit" disabled={!password || busy}>
-            {busy ? 'Unlocking…' : 'Unlock'}
-          </Button>
-        </form>
-        {demo ? (
-          <div className="lock__demo">
-            <span>
-              Demo password: <code>{DEMO_PASSWORD}</code>
-            </span>
-            <div className="lock__links">
-              <button type="button" className="link" onClick={() => setPassword(DEMO_PASSWORD)}>
-                Fill it in
-              </button>
-              <button type="button" className="link" onClick={onExitDemo}>
-                Leave the demo
-              </button>
-            </div>
+
+        <div className="lock__panel">
+          <p className="pv-label">{state === 'open' ? 'Opening' : 'Locked'}</p>
+          <h1 className="pv-display lock__name">{profile.vaultName}</h1>
+          <p className="lock__code">
+            <span className="pv-label">Fingerprint</span>
+            <span className="pv-fp-code">{header.fingerprint}</span>
+          </p>
+
+          <form className="combo" onSubmit={(e) => void submit(e)}>
+            <label htmlFor={inputId} className="pv-sr">
+              Master password
+            </label>
+            <input
+              id={inputId}
+              ref={inputRef}
+              className="combo__input"
+              type="password"
+              placeholder="Master password"
+              autoComplete="current-password"
+              autoFocus
+              spellCheck={false}
+              value={password}
+              readOnly={state === 'working' || state === 'open'}
+              aria-invalid={state === 'wrong' || undefined}
+              aria-describedby={error ? `${inputId}-error` : undefined}
+              onKeyDown={checkCaps}
+              onKeyUp={checkCaps}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (state === 'wrong') setState('idle');
+                setError(null);
+              }}
+            />
+            <button
+              type="submit"
+              className="combo__go"
+              aria-label="Unlock"
+              disabled={!password || state === 'working' || state === 'open'}
+            >
+              {state === 'working' ? <span className="spinner" /> : <Icon name="arrow" />}
+            </button>
+          </form>
+          <div className="lock__messages">
+            {capsLock && <span className="pv-field__warn">Caps Lock is on</span>}
+            {error && (
+              <p id={`${inputId}-error`} className="lock__error" role="alert">
+                {error}
+              </p>
+            )}
           </div>
-        ) : (
-          <button type="button" className="link lock__forgot" onClick={() => setForgotOpen(true)}>
-            Forgot your master password?
-          </button>
-        )}
+
+          {demo ? (
+            <div className="lock__demo">
+              <span className="pv-label">Demo vault</span>
+              <span>
+                The password is <code>{DEMO_PASSWORD}</code>
+              </span>
+              <span className="lock__links">
+                <button type="button" className="link" onClick={() => setPassword(DEMO_PASSWORD)}>
+                  Fill it in
+                </button>
+                <button type="button" className="link" onClick={onExitDemo}>
+                  Leave the demo
+                </button>
+              </span>
+            </div>
+          ) : (
+            <button type="button" className="link lock__forgot" onClick={() => setForgotOpen(true)}>
+              Forgot your master password?
+            </button>
+          )}
+        </div>
       </div>
-      <p className="lock__hint">
-        Check that the pattern and code match the ones you saw when you created this vault.
-      </p>
+
+      <footer className="lock__foot">
+        Only type your master password when this dial and code match the ones you saw when the vault
+        was created.
+      </footer>
 
       <Dialog
         open={forgotOpen}
@@ -144,9 +202,9 @@ export function LockScreen({
         description="Your vault is encrypted with a key that only your master password can produce. We never had it, so there's nothing to send you."
       >
         <ul className="plain-list">
-          <li>Try variations you might have used: capitals, spaces, an extra word at the end.</li>
+          <li>Try the variations you tend to use: capitals, spaces, an extra word at the end.</li>
           <li>Check whether Caps Lock or a different keyboard layout is on.</li>
-          <li>If you can't remember it, the only way forward is a new, empty vault.</li>
+          <li>If it's truly gone, the only way forward is a new, empty vault.</li>
         </ul>
         <div className="dialog-actions">
           <Button

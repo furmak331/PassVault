@@ -1,40 +1,34 @@
 import {
+  DEFAULT_ITERATIONS,
   generatePassphrase,
   type Fingerprint as VaultFingerprint,
   type Vault,
 } from '@passvaultify/core';
-import {
-  Badge,
-  Button,
-  DataChip,
-  Fingerprint,
-  Icon,
-  Segmented,
-  TextField,
-  type IconName,
-} from '@passvaultify/ui';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { Badge, Button, Fingerprint, Icon, TextField } from '@passvaultify/ui';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useRings } from './hooks';
 import { StrengthReadout, useMasterStrength } from './MasterStrength';
 import {
   ACCENTS,
   defaultVaultName,
+  type Accent,
   type Profile,
   type StorageMode,
   type ThemeSetting,
 } from './profile';
 
-type Step = 'welcome' | 'you' | 'storage' | 'look' | 'master' | 'fingerprint';
+type Step = 'welcome' | 'you' | 'storage' | 'look' | 'master' | 'sealed';
 const NUMBERED: Step[] = ['you', 'storage', 'look', 'master'];
 
-export const THEME_OPTIONS: { value: ThemeSetting; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'graphite', label: 'Graphite' },
-  { value: 'porcelain', label: 'Porcelain' },
+export const THEME_OPTIONS: { value: ThemeSetting; label: string; note: string }[] = [
+  { value: 'system', label: 'System', note: 'Follows your device' },
+  { value: 'graphite', label: 'Graphite', note: 'For low light' },
+  { value: 'porcelain', label: 'Porcelain', note: 'For daylight' },
 ];
 
 export interface OnboardingProps {
   profile: Profile;
-  /** Called as appearance choices change, so the whole page previews them. */
+  /** Called as choices change, so the whole page previews them. */
   onPreview: (profile: Profile) => void;
   onCreate: (
     profile: Profile,
@@ -49,124 +43,204 @@ export function Onboarding({ profile, onPreview, onCreate, onDemo, onDone }: Onb
   const [created, setCreated] = useState<{ vault: Vault; fingerprint: VaultFingerprint } | null>(
     null,
   );
+  const [strength, setStrength] = useState(0);
+  const [typed, setTyped] = useState(0);
   const index = NUMBERED.indexOf(step);
-  const back = index > 0 ? () => setStep(NUMBERED[index - 1] as Step) : () => setStep('welcome');
+  const back = () => setStep(index > 0 ? (NUMBERED[index - 1] as Step) : 'welcome');
 
   return (
-    <main className="onb">
-      <header className="onb__top">
-        <Brand />
-        {index >= 0 && (
-          <span className="onb__progress" aria-label={`Step ${index + 1} of ${NUMBERED.length}`}>
-            {NUMBERED.map((s, i) => (
-              <span key={s} className={i <= index ? 'is-on' : undefined} />
-            ))}
-          </span>
-        )}
-      </header>
-      <section className="onb__card pv-card" aria-live="polite">
-        {step === 'welcome' && <Welcome onCreate={() => setStep('you')} onDemo={onDemo} />}
-        {step === 'you' && (
-          <YouStep
-            profile={profile}
-            onChange={onPreview}
-            onBack={back}
-            onNext={() => setStep('storage')}
-          />
-        )}
-        {step === 'storage' && (
-          <StorageStep
-            mode={profile.storageMode}
-            onChange={(storageMode) => onPreview({ ...profile, storageMode })}
-            onBack={back}
-            onNext={() => setStep('look')}
-          />
-        )}
-        {step === 'look' && (
-          <LookStep
-            profile={profile}
-            onChange={onPreview}
-            onBack={back}
-            onNext={() => setStep('master')}
-          />
-        )}
-        {step === 'master' && (
-          <MasterStep
-            profile={profile}
-            onBack={back}
-            onCreate={async (password) => {
-              setCreated(await onCreate(profile, password));
-              setStep('fingerprint');
-            }}
-          />
-        )}
-        {step === 'fingerprint' && created && (
-          <FingerprintStep fingerprint={created.fingerprint} onDone={() => onDone(created.vault)} />
-        )}
+    <main className="onb" data-step={step}>
+      <Instrument
+        profile={profile}
+        step={step}
+        fingerprint={created?.fingerprint ?? null}
+        lit={step === 'sealed' ? 1 : step === 'master' ? strength : 0}
+        turn={(index + 1) * 24 + typed * 7}
+      />
+      <section className="onb__main" aria-live="polite">
+        <header className="onb__bar">
+          {index >= 0 ? (
+            <span className="onb__step">
+              <span className="pv-label">
+                Step {index + 1} of {NUMBERED.length}
+              </span>
+              <span className="onb__ticks" aria-hidden="true">
+                {NUMBERED.map((s, i) => (
+                  <span key={s} className={i <= index ? 'is-on' : undefined} />
+                ))}
+              </span>
+            </span>
+          ) : (
+            <span />
+          )}
+          {index >= 0 && (
+            <button type="button" className="onb__back" onClick={back}>
+              <Icon name="back" />
+              Back
+            </button>
+          )}
+        </header>
+        <div className="onb__body" key={step}>
+          {step === 'welcome' && <Welcome onCreate={() => setStep('you')} onDemo={onDemo} />}
+          {step === 'you' && (
+            <YouStep profile={profile} onChange={onPreview} onNext={() => setStep('storage')} />
+          )}
+          {step === 'storage' && (
+            <StorageStep
+              mode={profile.storageMode}
+              onChange={(storageMode) => onPreview({ ...profile, storageMode })}
+              onNext={() => setStep('look')}
+            />
+          )}
+          {step === 'look' && (
+            <LookStep profile={profile} onChange={onPreview} onNext={() => setStep('master')} />
+          )}
+          {step === 'master' && (
+            <MasterStep
+              profile={profile}
+              onLevel={setStrength}
+              onTyped={setTyped}
+              onCreate={async (password) => {
+                setCreated(await onCreate(profile, password));
+                setStep('sealed');
+              }}
+            />
+          )}
+          {step === 'sealed' && created && (
+            <SealedStep fingerprint={created.fingerprint} onDone={() => onDone(created.vault)} />
+          )}
+        </div>
       </section>
-      <footer className="onb__foot">
-        <DataChip mode={profile.storageMode} />
-      </footer>
     </main>
   );
 }
 
-export function Brand() {
+/** The wordmark: a small dial with its index mark, then the name. */
+export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <span className="brand">
-      <span className="brand__mark" aria-hidden="true">
-        <Icon name="lock" />
-      </span>
-      PassVaultify
+      <svg className="brand__mark" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="5.5" />
+        <path d="M12 2v4" className="brand__index" />
+      </svg>
+      {!compact && <span className="brand__name">PassVaultify</span>}
     </span>
   );
 }
 
-function StepHead({
-  eyebrow,
-  title,
-  children,
+function stepLabel(step: Step, sealed: boolean): string {
+  if (sealed) return 'Sealed';
+  if (step === 'master') return 'Waiting for a master password';
+  return 'Not created yet';
+}
+
+/**
+ * The left-hand panel: a live preview of the vault being set up. The dial is a
+ * placeholder pattern until the vault is created; then it becomes the real
+ * fingerprint, the one the lock screen shows.
+ */
+function Instrument({
+  profile,
+  step,
+  fingerprint,
+  lit,
+  turn,
 }: {
-  eyebrow?: string;
-  title: string;
-  children?: ReactNode;
+  profile: Profile;
+  step: Step;
+  fingerprint: VaultFingerprint | null;
+  lit: number;
+  turn: number;
 }) {
+  const preview = useRings(`preview/${profile.vaultName || 'PassVaultify'}`);
+  const rings = fingerprint?.rings ?? preview;
+  const accent = ACCENTS.find((a) => a.value === profile.accent)?.label ?? '';
+  const theme = THEME_OPTIONS.find((t) => t.value === profile.theme)?.label ?? '';
+  const sealed = fingerprint !== null;
   return (
-    <div className="onb__head">
-      {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-      <h1 className="onb__title">{title}</h1>
-      {children && <p className="onb__lede">{children}</p>}
+    // Always dark, whatever the page theme: the instrument is a fixed object.
+    <aside
+      className="inst pv-root"
+      data-theme="graphite"
+      data-accent={profile.accent}
+      aria-label="Vault preview"
+    >
+      <div className="inst__top">
+        <Brand />
+        <span className="pv-label">{sealed ? 'Vault sealed' : 'Preview'}</span>
+      </div>
+      <div className="inst__dial" data-sealed={sealed || undefined}>
+        {rings ? (
+          <Fingerprint
+            bytes={rings}
+            size={300}
+            bezel
+            lit={lit}
+            turn={sealed ? 0 : turn}
+            glyph={sealed ? 'lock' : 'unlock'}
+            {...(sealed ? { label: `Vault fingerprint ${fingerprint.code}` } : {})}
+          />
+        ) : (
+          <span className="inst__dial-placeholder" />
+        )}
+      </div>
+      <div className="inst__id">
+        <p className="inst__name">{profile.vaultName || 'Untitled vault'}</p>
+        <p className="pv-fp-code">{sealed ? fingerprint.code : '•••• •••• ••••'}</p>
+      </div>
+      <dl className="spec">
+        <SpecRow label="Cipher">AES-256-GCM</SpecRow>
+        <SpecRow label="Key">PBKDF2-SHA256 × {DEFAULT_ITERATIONS.toLocaleString('en')}</SpecRow>
+        <SpecRow label="Storage">{profile.storageMode === 'local' ? 'This device' : '—'}</SpecRow>
+        <SpecRow label="Finish">
+          {theme} · {accent}
+        </SpecRow>
+        <SpecRow label="Status">
+          <span className="spec__status" data-sealed={sealed || undefined}>
+            {stepLabel(step, sealed)}
+          </span>
+        </SpecRow>
+      </dl>
+    </aside>
+  );
+}
+
+function SpecRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="spec__row">
+      <dt className="pv-label">{label}</dt>
+      <dd>{children}</dd>
     </div>
   );
 }
 
-function StepNav({ onBack, next }: { onBack: () => void; next: ReactNode }) {
+function Title({ children }: { children: ReactNode }) {
   return (
-    <div className="onb__nav">
-      <Button icon="back" onClick={onBack}>
-        Back
-      </Button>
-      {next}
-    </div>
+    <h1 className="pv-display onb__title">
+      {children}
+      <span className="dot">.</span>
+    </h1>
   );
+}
+
+function Lede({ children }: { children: ReactNode }) {
+  return <p className="onb__lede">{children}</p>;
 }
 
 function Welcome({ onCreate, onDemo }: { onCreate: () => void; onDemo: () => Promise<void> }) {
   const [loadingDemo, setLoadingDemo] = useState(false);
   return (
-    <>
-      <StepHead title="A password manager that can't read your passwords.">
-        Your vault is encrypted on this device with a key made from your master password. Nobody
-        else ever holds that key, including us.
-      </StepHead>
-      <ul className="facts">
-        <Fact icon="key">AES-256-GCM, with keys stretched by 600,000 rounds of PBKDF2</Fact>
-        <Fact icon="device">Works offline. In local-only mode nothing leaves this device</Fact>
-        <Fact icon="shield">An open, documented format with published test vectors</Fact>
-      </ul>
+    <div className="onb__step-body onb__welcome">
+      <Title>A password manager that can't read your passwords</Title>
+      <Lede>
+        Your vault is sealed on this device with a key made from your master password. Nobody else
+        ever holds that key. Not a server, not us.
+      </Lede>
       <div className="onb__actions">
         <Button variant="primary" size="lg" onClick={onCreate}>
           Create a vault
+          <Icon name="arrow" />
         </Button>
         <Button
           size="lg"
@@ -176,107 +250,122 @@ function Welcome({ onCreate, onDemo }: { onCreate: () => void; onDemo: () => Pro
             void onDemo().catch(() => setLoadingDemo(false));
           }}
         >
-          {loadingDemo ? 'Preparing the demo…' : 'Explore the demo vault'}
+          {loadingDemo ? 'Preparing the demo…' : 'Explore a demo vault'}
         </Button>
       </div>
-      <p className="onb__fine">
-        The demo uses sample data, kept in memory and gone when you close the tab.
-      </p>
-    </>
+      <ul className="facts">
+        <li>
+          <span className="facts__lead">Sealed here</span>
+          Every item is encrypted with AES-256-GCM before it's stored.
+        </li>
+        <li>
+          <span className="facts__lead">No account</span>
+          In local-only mode, nothing leaves this device. It works offline.
+        </li>
+        <li>
+          <span className="facts__lead">Open format</span>
+          Documented, with test vectors anyone can check.
+        </li>
+      </ul>
+    </div>
   );
 }
 
-function Fact({ icon, children }: { icon: IconName; children: ReactNode }) {
-  return (
-    <li className="fact">
-      <span className="fact__icon">
-        <Icon name={icon} />
-      </span>
-      {children}
-    </li>
-  );
-}
-
-interface StepProps {
+function YouStep({
+  profile,
+  onChange,
+  onNext,
+}: {
   profile: Profile;
   onChange: (profile: Profile) => void;
-  onBack: () => void;
   onNext: () => void;
-}
-
-function YouStep({ profile, onChange, onBack, onNext }: StepProps) {
+}) {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     onChange({ ...profile, vaultName: profile.vaultName.trim() || defaultVaultName(profile.name) });
     onNext();
   };
   return (
-    <form className="onb__form" onSubmit={submit}>
-      <StepHead eyebrow="Make it yours" title="What should we call you?">
-        Shown on your lock screen, so you know you're unlocking the right vault. It stays on this
-        device.
-      </StepHead>
-      <TextField
-        label="Your name"
-        placeholder="Optional"
-        autoComplete="given-name"
-        autoFocus
-        maxLength={40}
-        value={profile.name}
-        onChange={(e) => {
-          const name = e.target.value;
-          const followsName = profile.vaultName === defaultVaultName(profile.name);
-          onChange({
-            ...profile,
-            name,
-            vaultName: followsName ? defaultVaultName(name) : profile.vaultName,
-          });
-        }}
-      />
-      <TextField
-        label="Vault name"
-        maxLength={40}
-        value={profile.vaultName}
-        onChange={(e) => onChange({ ...profile, vaultName: e.target.value })}
-      />
-      <StepNav
-        onBack={onBack}
-        next={
-          <Button variant="primary" type="submit">
-            Continue
-          </Button>
-        }
-      />
+    <form className="onb__step-body" onSubmit={submit}>
+      <Title>Name your vault</Title>
+      <Lede>
+        It goes on the lock screen next to the vault's fingerprint, so you always know which vault
+        you're opening. It stays on this device.
+      </Lede>
+      <div className="onb__fields">
+        <TextField
+          label="Your name"
+          placeholder="Optional"
+          autoComplete="given-name"
+          autoFocus
+          maxLength={40}
+          value={profile.name}
+          onChange={(e) => {
+            const name = e.target.value;
+            const followsName = profile.vaultName === defaultVaultName(profile.name);
+            onChange({
+              ...profile,
+              name,
+              vaultName: followsName ? defaultVaultName(name) : profile.vaultName,
+            });
+          }}
+        />
+        <TextField
+          label="Vault name"
+          maxLength={40}
+          value={profile.vaultName}
+          onChange={(e) => onChange({ ...profile, vaultName: e.target.value })}
+        />
+      </div>
+      <Next type="submit" />
     </form>
   );
 }
 
-const STORAGE: {
-  mode: StorageMode;
-  icon: IconName;
-  title: string;
-  body: string;
-  ready: boolean;
-}[] = [
+function Next({
+  type = 'button',
+  onClick,
+  disabled,
+  children = 'Continue',
+}: {
+  type?: 'button' | 'submit';
+  onClick?: () => void;
+  disabled?: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="onb__next">
+      <Button
+        variant="primary"
+        size="lg"
+        type={type}
+        disabled={disabled}
+        {...(onClick ? { onClick } : {})}
+      >
+        {children}
+        <Icon name="arrow" />
+      </Button>
+    </div>
+  );
+}
+
+const STORAGE: { mode: StorageMode; title: string; body: string; ready: boolean }[] = [
   {
     mode: 'local',
-    icon: 'device',
-    title: 'Local only',
-    body: 'Encrypted in this browser. No account and no network: the vault never leaves this device.',
+    title: 'This device only',
+    body: 'Encrypted in this browser. No account, no network, nothing to breach but this device.',
     ready: true,
   },
   {
     mode: 'self',
-    icon: 'server',
-    title: 'Self-hosted',
-    body: 'Sync through a PassVaultify server you run. It stores ciphertext only.',
+    title: 'Your own server',
+    body: 'Sync through a PassVaultify server you run. It only ever stores ciphertext.',
     ready: false,
   },
   {
     mode: 'cloud',
-    icon: 'cloud',
     title: 'PassVaultify Cloud',
-    body: 'Sync across devices with end-to-end encryption, without running a server.',
+    body: 'End-to-end encrypted sync across devices, without running anything yourself.',
     ready: false,
   },
 ];
@@ -284,23 +373,23 @@ const STORAGE: {
 function StorageStep({
   mode,
   onChange,
-  onBack,
   onNext,
 }: {
   mode: StorageMode;
   onChange: (mode: StorageMode) => void;
-  onBack: () => void;
   onNext: () => void;
 }) {
   return (
-    <div className="onb__form">
-      <StepHead eyebrow="Your data, your call" title="Where should your vault live?">
-        Whichever you pick, everything is encrypted before it's stored. You can move it later.
-      </StepHead>
-      <fieldset className="choices">
+    <div className="onb__step-body">
+      <Title>Choose where it lives</Title>
+      <Lede>
+        Wherever you keep it, the vault is sealed before it's stored. Whoever holds the storage
+        holds only ciphertext.
+      </Lede>
+      <fieldset className="options">
         <legend className="pv-sr">Storage</legend>
         {STORAGE.map((s) => (
-          <label key={s.mode} className="choice" data-disabled={!s.ready || undefined}>
+          <label key={s.mode} className="option" data-disabled={!s.ready || undefined}>
             <input
               type="radio"
               name="storage"
@@ -309,28 +398,55 @@ function StorageStep({
               disabled={!s.ready}
               onChange={() => onChange(s.mode)}
             />
-            <span className="choice__icon">
-              <Icon name={s.icon} />
-            </span>
-            <span className="choice__text">
-              <span className="choice__title">
+            <span className="option__mark" aria-hidden="true" />
+            <span className="option__text">
+              <span className="option__title">
                 {s.title}
-                {!s.ready && <Badge>Coming soon</Badge>}
+                {!s.ready && <Badge>Soon</Badge>}
               </span>
-              <span className="choice__body">{s.body}</span>
+              <span className="option__body">{s.body}</span>
             </span>
           </label>
         ))}
       </fieldset>
-      <StepNav
-        onBack={onBack}
-        next={
-          <Button variant="primary" onClick={onNext}>
-            Continue
-          </Button>
-        }
-      />
+      <Next onClick={onNext} />
     </div>
+  );
+}
+
+/** Theme choice as small renderings of the app itself, not just words. */
+export function ThemePicker({
+  value,
+  onChange,
+}: {
+  value: ThemeSetting;
+  onChange: (theme: ThemeSetting) => void;
+}) {
+  return (
+    <fieldset className="themes">
+      <legend className="pv-sr">Theme</legend>
+      {THEME_OPTIONS.map((t) => (
+        <label key={t.value} className="theme-tile" data-theme-preview={t.value}>
+          <input
+            type="radio"
+            name="theme"
+            value={t.value}
+            checked={value === t.value}
+            onChange={() => onChange(t.value)}
+          />
+          <span className="theme-tile__art" aria-hidden="true">
+            <span className="theme-tile__side" />
+            <span className="theme-tile__rows">
+              <span />
+              <span />
+              <span />
+            </span>
+          </span>
+          <span className="theme-tile__label">{t.label}</span>
+          <span className="theme-tile__note">{t.note}</span>
+        </label>
+      ))}
+    </fieldset>
   );
 }
 
@@ -338,8 +454,8 @@ export function AccentPicker({
   value,
   onChange,
 }: {
-  value: Profile['accent'];
-  onChange: (a: Profile['accent']) => void;
+  value: Accent;
+  onChange: (accent: Accent) => void;
 }) {
   return (
     <fieldset className="swatches">
@@ -349,6 +465,7 @@ export function AccentPicker({
           key={a.value}
           className="swatch"
           title={a.label}
+          data-accent-swatch={a.value}
           style={{ ['--sw' as string]: a.swatch }}
         >
           <input
@@ -358,55 +475,53 @@ export function AccentPicker({
             checked={value === a.value}
             onChange={() => onChange(a.value)}
           />
-          <span className="pv-sr">{a.label}</span>
+          <span className="swatch__chip" aria-hidden="true" />
+          <span className="swatch__label">{a.label}</span>
         </label>
       ))}
     </fieldset>
   );
 }
 
-function LookStep({ profile, onChange, onBack, onNext }: StepProps) {
+function LookStep({
+  profile,
+  onChange,
+  onNext,
+}: {
+  profile: Profile;
+  onChange: (profile: Profile) => void;
+  onNext: () => void;
+}) {
   return (
-    <div className="onb__form">
-      <StepHead eyebrow="Make it yours" title="Pick a look">
-        Graphite for low light, Porcelain for daylight, or follow your system.
-      </StepHead>
-      <div className="row-setting">
-        <span className="row-setting__label">Theme</span>
-        <Segmented
-          label="Theme"
-          value={profile.theme}
-          options={THEME_OPTIONS}
-          onChange={(theme) => onChange({ ...profile, theme })}
-        />
+    <div className="onb__step-body">
+      <Title>Pick a finish</Title>
+      <Lede>The whole app follows along, so you can see it before you commit.</Lede>
+      <div className="onb__group">
+        <span className="pv-label">Theme</span>
+        <ThemePicker value={profile.theme} onChange={(theme) => onChange({ ...profile, theme })} />
       </div>
-      <div className="row-setting">
-        <span className="row-setting__label">Accent</span>
+      <div className="onb__group">
+        <span className="pv-label">Signal color</span>
         <AccentPicker
           value={profile.accent}
           onChange={(accent) => onChange({ ...profile, accent })}
         />
       </div>
-      <StepNav
-        onBack={onBack}
-        next={
-          <Button variant="primary" onClick={onNext}>
-            Continue
-          </Button>
-        }
-      />
+      <Next onClick={onNext} />
     </div>
   );
 }
 
 function MasterStep({
   profile,
-  onBack,
   onCreate,
+  onLevel,
+  onTyped,
 }: {
   profile: Profile;
-  onBack: () => void;
   onCreate: (password: string) => Promise<void>;
+  onLevel: (level: number) => void;
+  onTyped: (length: number) => void;
 }) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -419,6 +534,11 @@ function MasterStep({
     profile.vaultName,
     'passvaultify',
   ]);
+
+  // Drive the dial's bezel from the strength estimate, and its rings from typing.
+  const level = password && strength ? (strength.score + 1) / 5 : 0;
+  useEffect(() => onLevel(level), [level, onLevel]);
+  useEffect(() => onTyped(password.length), [password.length, onTyped]);
 
   const mismatch = confirm.length > 0 && confirm !== password;
   const ready = current && !!strength?.acceptable && confirm === password && understood && !busy;
@@ -437,76 +557,79 @@ function MasterStep({
   };
 
   return (
-    <form className="onb__form" onSubmit={(e) => void submit(e)}>
-      <StepHead eyebrow="The one password to remember" title="Choose a master password">
-        It's the only key to your vault. We never see it and can't reset it, so make it long and
-        memorable. A few random words work well.
-      </StepHead>
-      <div className="field-with-action">
-        <TextField
-          label="Master password"
-          type={show ? 'text' : 'password'}
-          autoComplete="new-password"
-          autoFocus
-          spellCheck={false}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <div className="field-actions">
-          <Button icon={show ? 'eyeOff' : 'eye'} onClick={() => setShow(!show)}>
-            {show ? 'Hide' : 'Show'}
-          </Button>
-          <Button
-            icon="refresh"
-            onClick={() => {
-              setPassword(generatePassphrase({ words: 5, separator: '-' }).value);
-              setConfirm('');
-              setShow(true);
-            }}
-          >
-            Suggest one
-          </Button>
+    <form className="onb__step-body" onSubmit={(e) => void submit(e)}>
+      <Title>Set the combination</Title>
+      <Lede>
+        Your master password is the only key. We never see it and can't reset it, so make it long
+        and memorable. Four or five random words work well.
+      </Lede>
+      <div className="onb__fields">
+        <div className="pw-field">
+          <TextField
+            label="Master password"
+            type={show ? 'text' : 'password'}
+            autoComplete="new-password"
+            autoFocus
+            spellCheck={false}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <div className="pw-field__tools">
+            <button type="button" className="text-btn" onClick={() => setShow(!show)}>
+              <Icon name={show ? 'eyeOff' : 'eye'} />
+              {show ? 'Hide' : 'Show'}
+            </button>
+            <button
+              type="button"
+              className="text-btn"
+              onClick={() => {
+                setPassword(generatePassphrase({ words: 5, separator: '-' }).value);
+                setConfirm('');
+                setShow(true);
+              }}
+            >
+              <Icon name="refresh" />
+              Suggest a passphrase
+            </button>
+          </div>
         </div>
-      </div>
-      <StrengthReadout password={password} strength={strength} />
-      <TextField
-        label="Confirm master password"
-        type="password"
-        autoComplete="new-password"
-        spellCheck={false}
-        value={confirm}
-        onChange={(e) => setConfirm(e.target.value)}
-        {...(mismatch ? { hint: "Doesn't match yet" } : {})}
-      />
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={understood}
-          onChange={(e) => setUnderstood(e.target.checked)}
+        <StrengthReadout password={password} strength={strength} />
+        <TextField
+          label="Type it again"
+          type="password"
+          autoComplete="new-password"
+          spellCheck={false}
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          {...(mismatch ? { hint: "Doesn't match yet" } : {})}
         />
-        <span>
-          I understand that if I forget my master password,{' '}
-          <strong>my vault can't be recovered</strong>.
-        </span>
-      </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={understood}
+            onChange={(e) => setUnderstood(e.target.checked)}
+          />
+          <span className="check__box" aria-hidden="true">
+            <Icon name="check" />
+          </span>
+          <span>
+            I understand that if I forget it, <strong>this vault can't be recovered</strong>.
+          </span>
+        </label>
+      </div>
       {error && (
         <p className="form-error" role="alert">
           {error}
         </p>
       )}
-      <StepNav
-        onBack={onBack}
-        next={
-          <Button variant="primary" type="submit" disabled={!ready}>
-            {busy ? 'Creating vault…' : 'Create vault'}
-          </Button>
-        }
-      />
+      <Next type="submit" disabled={!ready}>
+        {busy ? 'Sealing the vault…' : 'Seal the vault'}
+      </Next>
     </form>
   );
 }
 
-function FingerprintStep({
+function SealedStep({
   fingerprint,
   onDone,
 }: {
@@ -514,23 +637,19 @@ function FingerprintStep({
   onDone: () => void;
 }) {
   return (
-    <div className="onb__form onb__form--center">
-      <Fingerprint
-        bytes={fingerprint.rings}
-        size={184}
-        label={`Vault fingerprint ${fingerprint.code}`}
-      />
-      <p className="pv-fp-code">{fingerprint.code}</p>
-      <StepHead eyebrow="Vault created" title="Meet your vault's fingerprint">
-        This pattern comes from your vault's key, so no other vault has it. You'll see it every time
-        you unlock. If a page asks for your master password without showing this exact pattern,
-        don't type it.
-      </StepHead>
-      <div className="onb__actions">
-        <Button variant="primary" size="lg" autoFocus onClick={onDone}>
-          Open my vault
-        </Button>
+    <div className="onb__step-body">
+      <p className="pv-label onb__kicker">Vault sealed</p>
+      <Title>Learn its face</Title>
+      <Lede>
+        The dial is your vault's fingerprint, drawn from its key. No other vault has it, and the
+        lock screen always shows it. If a page asks for your master password without this exact
+        pattern, it isn't PassVaultify.
+      </Lede>
+      <div className="sealed-code">
+        <span className="pv-label">Fingerprint code</span>
+        <span className="sealed-code__value">{fingerprint.code}</span>
       </div>
+      <Next onClick={onDone}>Open the vault</Next>
     </div>
   );
 }
