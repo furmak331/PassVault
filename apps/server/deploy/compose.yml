@@ -1,0 +1,35 @@
+# PassVaultify sync server with automatic HTTPS (Caddy + Let's Encrypt).
+# Data lives in one SQLite file. For PostgreSQL, add compose.postgres.yml.
+# Setup and upgrades: docs/self-hosting.md
+services:
+  server:
+    build: ..
+    image: passvaultify-server
+    restart: unless-stopped
+    environment:
+      PASSVAULTIFY_REGISTRATION: ${PASSVAULTIFY_REGISTRATION:-open}
+    volumes:
+      - data:/data
+    expose:
+      - '8080'
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env to the name that points at this machine}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - server
+
+volumes:
+  data:
+  caddy_data:
+  caddy_config:

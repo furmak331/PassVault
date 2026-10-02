@@ -17,3 +17,7 @@ dist/
 release/
 .turbo/
 *.tsbuildinfo
+
+# Local secrets and server data
+.env
+apps/server/data/
