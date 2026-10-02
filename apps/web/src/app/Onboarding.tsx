@@ -1,14 +1,20 @@
 import {
   DEFAULT_ITERATIONS,
   generatePassphrase,
+  signInToSync,
   type Fingerprint as VaultFingerprint,
+  type ServerInfo,
+  type SyncSettings,
   type Vault,
   type VaultBackup,
+  type VaultHeader,
 } from '@passvaultify/core';
-import { Badge, Button, Fingerprint, Icon, TextField } from '@passvaultify/ui';
+import { Badge, Button, Dialog, Fingerprint, Icon, TextField } from '@passvaultify/ui';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useRings } from './hooks';
 import { RestoreDialog } from './ImportDialog';
+import { deviceName } from './sync';
+import { AccountStep, ServerStep } from './SyncDialog';
 import { ThemeToggle } from './ThemeToggle';
 import { StrengthReadout, useMasterStrength } from './MasterStrength';
 import {
@@ -41,6 +47,8 @@ export interface OnboardingProps {
   onDone: (vault: Vault) => void;
   onTheme: (theme: ThemeSetting) => void;
   onRestore: (backup: VaultBackup, password: string) => Promise<void>;
+  /** A device joining a vault that already lives on a sync server. */
+  onSignIn: (settings: SyncSettings, header: VaultHeader, password: string) => Promise<void>;
 }
 
 export function Onboarding({
@@ -51,6 +59,7 @@ export function Onboarding({
   onDone,
   onTheme,
   onRestore,
+  onSignIn,
 }: OnboardingProps) {
   const [step, setStep] = useState<Step>('welcome');
   const [created, setCreated] = useState<{ vault: Vault; fingerprint: VaultFingerprint } | null>(
@@ -58,6 +67,7 @@ export function Onboarding({
   );
   const [strength, setStrength] = useState(0);
   const [restoreOpen, setRestoreOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
   const [typed, setTyped] = useState(0);
   const index = NUMBERED.indexOf(step);
   const back = () => setStep(index > 0 ? (NUMBERED[index - 1] as Step) : 'welcome');
@@ -101,7 +111,13 @@ export function Onboarding({
           </span>
         </header>
         <div className="onb__body" key={step}>
-          {step === 'welcome' && <Welcome onCreate={() => setStep('you')} onDemo={onDemo} />}
+          {step === 'welcome' && (
+            <Welcome
+              onCreate={() => setStep('you')}
+              onDemo={onDemo}
+              onSignIn={() => setSignInOpen(true)}
+            />
+          )}
           {step === 'you' && (
             <YouStep profile={profile} onChange={onPreview} onNext={() => setStep('storage')} />
           )}
@@ -132,6 +148,7 @@ export function Onboarding({
         </div>
       </section>
       <RestoreDialog open={restoreOpen} onOpenChange={setRestoreOpen} onRestore={onRestore} />
+      <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} onSignIn={onSignIn} />
     </main>
   );
 }
@@ -214,7 +231,9 @@ function Instrument({
       <dl className="spec">
         <SpecRow label="Cipher">AES-256-GCM</SpecRow>
         <SpecRow label="Key">PBKDF2-SHA256 × {DEFAULT_ITERATIONS.toLocaleString('en')}</SpecRow>
-        <SpecRow label="Storage">{profile.storageMode === 'local' ? 'This device' : '—'}</SpecRow>
+        <SpecRow label="Storage">
+          {profile.storageMode === 'local' ? 'This device' : 'Your server, connected next'}
+        </SpecRow>
         <SpecRow label="Finish">
           {theme} · {accent}
         </SpecRow>
@@ -250,7 +269,15 @@ function Lede({ children }: { children: ReactNode }) {
   return <p className="onb__lede">{children}</p>;
 }
 
-function Welcome({ onCreate, onDemo }: { onCreate: () => void; onDemo: () => Promise<void> }) {
+function Welcome({
+  onCreate,
+  onDemo,
+  onSignIn,
+}: {
+  onCreate: () => void;
+  onDemo: () => Promise<void>;
+  onSignIn: () => void;
+}) {
   const [loadingDemo, setLoadingDemo] = useState(false);
   return (
     <div className="onb__step-body onb__welcome">
@@ -275,6 +302,10 @@ function Welcome({ onCreate, onDemo }: { onCreate: () => void; onDemo: () => Pro
           {loadingDemo ? 'Preparing the demo…' : 'Explore a demo vault'}
         </Button>
       </div>
+      <button type="button" className="text-btn onb__signin" onClick={onSignIn}>
+        <Icon name="server" />
+        Already syncing on another device? Sign in to your server
+      </button>
       <ul className="facts">
         <li>
           <span className="facts__lead">Sealed here</span>
@@ -381,8 +412,8 @@ const STORAGE: { mode: StorageMode; title: string; body: string; ready: boolean 
   {
     mode: 'self',
     title: 'Your own server',
-    body: 'Sync through a PassVaultify server you run. It only ever stores ciphertext.',
-    ready: false,
+    body: "Sync through a PassVaultify server you run. It only ever stores ciphertext. You'll connect it once the vault is made.",
+    ready: true,
   },
   {
     mode: 'cloud',
@@ -673,5 +704,51 @@ function SealedStep({
       </div>
       <Next onClick={onDone}>Open the vault</Next>
     </div>
+  );
+}
+
+/** A new device joining a vault that lives on a sync server. */
+function SignInDialog({
+  open,
+  onOpenChange,
+  onSignIn,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSignIn: OnboardingProps['onSignIn'];
+}) {
+  const [server, setServer] = useState<{ url: string; info: ServerInfo } | null>(null);
+  const close = (next: boolean) => {
+    if (!next) setServer(null);
+    onOpenChange(next);
+  };
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={close}
+      title="Sign in to your server"
+      description="Your vault comes down encrypted and opens here with your master password."
+    >
+      {server ? (
+        <AccountStep
+          server={server.url}
+          info={server.info}
+          allowCreate={false}
+          onBack={() => setServer(null)}
+          onSubmit={async (_mode, email, password) => {
+            const { settings, header } = await signInToSync({
+              server: server.url,
+              serverFingerprint: server.info.fingerprint,
+              email,
+              password,
+              device: { name: deviceName(), kind: 'web' },
+            });
+            await onSignIn(settings, header, password);
+          }}
+        />
+      ) : (
+        <ServerStep onChecked={(url, info) => setServer({ url, info })} />
+      )}
+    </Dialog>
   );
 }

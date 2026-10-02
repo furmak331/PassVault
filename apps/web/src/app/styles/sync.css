@@ -1,0 +1,154 @@
+/* ---------- Sync: sidebar chip, connect flow, devices ---------- */
+
+.sync-chip {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+.sync-chip:hover {
+  box-shadow: inset 0 0 0 1px var(--pv-line);
+}
+.sync-chip:focus-visible {
+  outline: 2px solid var(--pv-acc);
+  outline-offset: 2px;
+}
+/* The lamp says how sync is doing: steady when up to date, pulsing while it works. */
+.sync-chip[data-state='syncing'] .pv-chip__dot,
+.sync-state[data-state='syncing'] .sync-state__lamp {
+  animation: pv-sync-pulse 1.1s var(--pv-ease) infinite alternate;
+}
+.sync-chip[data-state='offline'] .pv-chip__dot,
+.sync-state[data-state='offline'] .sync-state__lamp {
+  background: var(--pv-ink-3);
+  box-shadow: none;
+}
+.sync-chip[data-state='signed-out'] .pv-chip__dot,
+.sync-chip[data-state='error'] .pv-chip__dot,
+.sync-state[data-state='signed-out'] .sync-state__lamp,
+.sync-state[data-state='error'] .sync-state__lamp {
+  background: var(--pv-warn);
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--pv-warn) 50%, transparent);
+}
+.sync-chip[data-state='signed-out'],
+.sync-chip[data-state='error'] {
+  color: var(--pv-warn);
+}
+@keyframes pv-sync-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.3;
+  }
+}
+
+.server-nudge {
+  display: inline-flex;
+  white-space: nowrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px 4px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--pv-acc-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pv-acc) 45%, transparent);
+  color: var(--pv-acc-text);
+  font: 650 11.5px var(--pv-sans);
+  cursor: pointer;
+}
+.server-nudge .pv-icon {
+  width: 13px;
+  height: 13px;
+}
+.server-nudge:hover {
+  background: color-mix(in srgb, var(--pv-acc) 22%, transparent);
+}
+
+/* A server's identity: its fingerprint dial beside the host and code. */
+.server-id {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: var(--pv-radius);
+  background: var(--pv-sunken);
+  box-shadow: inset 0 0 0 1px var(--pv-line);
+}
+.server-id .pv-fp {
+  flex: none;
+}
+.server-id__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.server-id__host {
+  overflow-wrap: anywhere;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.sync-state {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sync-state p {
+  flex: 1;
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--pv-ink-2);
+}
+.sync-state__lamp {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--pv-acc);
+  box-shadow: 0 0 8px 1px var(--pv-acc-soft);
+}
+
+.devices h4 {
+  margin: 4px 0 6px;
+}
+.devices ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.device {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--pv-line);
+}
+.device > .pv-icon {
+  flex: none;
+  color: var(--pv-ink-3);
+}
+.device__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.device__name {
+  font-weight: 600;
+}
+.inline-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.onb__signin {
+  margin-top: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-chip .pv-chip__dot,
+  .sync-state__lamp {
+    animation: none !important;
+  }
+}

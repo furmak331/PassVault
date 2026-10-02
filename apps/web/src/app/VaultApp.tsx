@@ -11,7 +11,7 @@ import {
   type IconName,
 } from '@passvaultify/ui';
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { AppActions } from './App';
+import type { AppActions, SyncHandle } from './App';
 import { GeneratorDialog } from './GeneratorDialog';
 import { ItemDetail } from './ItemDetail';
 import { CommandPalette, type PaletteCommand } from './CommandPalette';
@@ -35,6 +35,8 @@ import {
 import { Brand } from './Onboarding';
 import { backupIsStale, type Profile, type ThemeSetting } from './profile';
 import { SettingsDialog } from './SettingsDialog';
+import { hostOf, syncLabel, syncSentence } from './sync';
+import { SyncDialog } from './SyncDialog';
 import { ThemeToggle } from './ThemeToggle';
 
 type Pane = { mode: 'view' } | { mode: 'edit'; id: string } | { mode: 'new'; type: ItemType };
@@ -44,9 +46,10 @@ export interface VaultAppProps {
   profile: Profile;
   demo: boolean;
   actions: AppActions;
+  sync: SyncHandle;
 }
 
-export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
+export function VaultApp({ vault, profile, demo, actions, sync }: VaultAppProps) {
   const toast = useToast();
   // The vault is a mutable object; bump this after each write so React re-reads it.
   const [revision, setRevision] = useState(0);
@@ -66,7 +69,17 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [syncOpen, setSyncOpen] = useState(false);
   const copy = useCopy();
+
+  // Items arriving from another device re-render the lists, like a local write does.
+  useEffect(
+    () =>
+      vault.onChange((change) => {
+        if (change.source === 'remote') setRevision((r) => r + 1);
+      }),
+    [vault],
+  );
   const canInstall = useCanInstall();
 
   const data = useMemo(() => {
@@ -616,8 +629,16 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
           demo={demo}
           onLock={actions.lock}
           onTheme={actions.changeTheme}
-          needsBackup={!demo && data.counts.all > 0 && backupIsStale(profile.lastBackupAt)}
+          needsBackup={
+            !demo &&
+            !sync.connection &&
+            profile.storageMode === 'local' &&
+            data.counts.all > 0 &&
+            backupIsStale(profile.lastBackupAt)
+          }
           onBackup={() => void actions.exportBackup().then(() => toast('Backup downloaded'))}
+          sync={sync}
+          onOpenSync={() => setSyncOpen(true)}
         />
       </aside>
 
@@ -775,7 +796,21 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
         onExitDemo={actions.exitDemo}
         onExportBackup={actions.exportBackup}
         onImport={() => setImportOpen(true)}
+        onChangePassword={actions.changePassword}
+        sync={sync}
+        onOpenSync={() => setSyncOpen(true)}
       />
+      {!demo && (
+        <SyncDialog
+          open={syncOpen}
+          onOpenChange={setSyncOpen}
+          vault={vault}
+          connection={sync.connection}
+          engine={sync.engine}
+          status={sync.status}
+          actions={sync.actions}
+        />
+      )}
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
@@ -858,6 +893,8 @@ function VaultStatus({
   onTheme,
   needsBackup,
   onBackup,
+  sync,
+  onOpenSync,
 }: {
   vault: Vault;
   profile: Profile;
@@ -866,6 +903,8 @@ function VaultStatus({
   onTheme: (theme: ThemeSetting) => void;
   needsBackup: boolean;
   onBackup: () => void;
+  sync: SyncHandle;
+  onOpenSync: () => void;
 }) {
   const rings = useRings(vault.header.fingerprint);
   return (
@@ -879,7 +918,29 @@ function VaultStatus({
         <IconButton icon="lock" label="Lock vault" onClick={onLock} />
       </div>
       <div className="status__row">
-        {needsBackup ? (
+        {!demo && sync.connection ? (
+          <button
+            type="button"
+            className="pv-chip sync-chip"
+            data-mode="self"
+            data-state={sync.status?.state ?? 'idle'}
+            title={`${hostOf(sync.connection.server)}: ${syncSentence(sync.status)}`}
+            onClick={onOpenSync}
+          >
+            <span className="pv-chip__dot" aria-hidden="true" />
+            <span className="pv-chip__text">{syncLabel(sync.status)}</span>
+          </button>
+        ) : !demo && profile.storageMode === 'self' ? (
+          <button
+            type="button"
+            className="server-nudge"
+            title="Connect the server this vault should sync with"
+            onClick={onOpenSync}
+          >
+            <Icon name="server" />
+            Set up sync
+          </button>
+        ) : needsBackup ? (
           <button
             type="button"
             className="backup-nudge"

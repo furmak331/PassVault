@@ -121,12 +121,14 @@
       <h1>Privacy policy<span>.</span></h1>
       <p class="lede">
         This covers the PassVaultify web vault and the PassVaultify extension for Chrome. The short
-        version: your passwords never leave your device, and we couldn't read them if they did.
+        version: your passwords are encrypted on your device, and nobody else can read them, not a
+        sync server and not us.
       </p>
       <div class="summary">
         <p>
-          PassVaultify has no accounts, no servers, no analytics and no ads. It makes no network
-          requests with your data. Everything it stores is in your own browser.
+          No analytics and no ads. By default nothing leaves your browser. If you connect a sync
+          server, it receives your vault only in encrypted form, and it's a server you choose: one
+          you run, or one you trust.
         </p>
       </div>
 
@@ -156,7 +158,41 @@
           <strong>Backups</strong> are files you download yourself. They stay encrypted with your
           master password.
         </li>
+        <li>
+          <strong>Sync settings</strong>, if you connect a server: its address and fingerprint, your
+          account email, and session tokens for that server.
+        </li>
       </ul>
+
+      <h2>If you connect a sync server</h2>
+      <p>
+        Sync is optional and off until you connect a server by its address. The web vault and the
+        extension then talk only to that server, over HTTPS. It receives:
+      </p>
+      <ul>
+        <li><strong>Your email</strong>, as your account name on that server.</li>
+        <li>
+          <strong>An authentication key</strong> derived from your master password, which it stores
+          only as an Argon2id hash. Your master password itself is never sent, and the key it
+          receives can't decrypt anything.
+        </li>
+        <li>
+          <strong>Your encrypted vault</strong>: the vault header (key-derivation settings, the
+          encrypted vault key and its fingerprint) and each item as ciphertext, with its ID,
+          revision, update time and whether it was deleted.
+        </li>
+        <li>
+          <strong>Each signed-in device's</strong> name (such as "Chrome on Windows"), kind and when
+          it was last active.
+        </li>
+      </ul>
+      <p>
+        The server can see how many items your vault holds, roughly their size, and when they
+        change. It can't see titles, usernames, passwords, websites or notes. The server is run by
+        whoever operates it, under their own policies; PassVaultify (the developer) doesn't run one
+        for you and receives nothing. You can disconnect at any time, sign devices out remotely, and
+        delete the account and everything in it.
+      </p>
 
       <h2>What the extension can see on web pages</h2>
       <p>By default, nothing until you ask. Chrome only lets it into a tab when you click it.</p>
@@ -180,9 +216,10 @@
 
       <h2>What is shared</h2>
       <p>
-        Nothing. PassVaultify does not sell, transfer or share your data with anyone, does not use
-        it for advertising or credit decisions, and has no way to see it. There is no telemetry or
-        crash reporting.
+        Nothing beyond the encrypted sync described above, and only with the server you connect.
+        PassVaultify does not sell, transfer or share your data with anyone, does not use it for
+        advertising or credit decisions, and has no way to see it. There is no telemetry or crash
+        reporting.
       </p>
       <p>
         The use of information received through Chrome's extension APIs adheres to the Chrome Web
@@ -193,13 +230,8 @@
       <p>
         Remove the vault from the extension's settings, or uninstall the extension; Chrome deletes
         its storage. In the web vault, use "Delete this vault" in Settings, or clear the site's data
-        in your browser. Any backup files you downloaded are yours to delete.
-      </p>
-
-      <h2>Future sync</h2>
-      <p>
-        Optional sync, to a server you run or a hosted one, is planned. When it arrives it will only
-        ever receive encrypted data, and this policy will be updated before it ships.
+        in your browser. Any backup files you downloaded are yours to delete. On a sync server,
+        deleting your account removes it with every device session and item.
       </p>
 
       <h2>Contact</h2>

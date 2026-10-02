@@ -20,7 +20,8 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  "connect-src 'self'",
+  // Sync servers can live anywhere, so any HTTPS origin; plain HTTP only for one on this computer.
+  "connect-src 'self' https: http://localhost:* http://127.0.0.1:*",
   "worker-src 'self'",
   "manifest-src 'self'",
   "object-src 'none'",

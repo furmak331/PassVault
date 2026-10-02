@@ -9,10 +9,13 @@ import {
   useToast,
 } from '@passvaultify/ui';
 import { useState, type FormEvent, type ReactNode } from 'react';
+import type { SyncHandle } from './App';
 import { DeleteVaultDialog } from './DeleteVaultDialog';
 import { relativeTime, useRings } from './hooks';
+import { syncErrorText } from './SyncDialog';
 import { StrengthReadout, useMasterStrength } from './MasterStrength';
 import { promptInstall, useCanInstall } from './pwa';
+import { hostOf } from './sync';
 import { AccentPicker, THEME_OPTIONS } from './Onboarding';
 import {
   AUTO_LOCK_CHOICES,
@@ -33,6 +36,9 @@ export interface SettingsDialogProps {
   onExitDemo: () => void;
   onExportBackup: () => Promise<void>;
   onImport: () => void;
+  onChangePassword: (current: string, next: string) => Promise<void>;
+  sync: SyncHandle;
+  onOpenSync: () => void;
 }
 
 const AUTO_LOCK_OPTIONS = AUTO_LOCK_CHOICES.map((m) => ({
@@ -143,13 +149,44 @@ export function SettingsDialog(props: SettingsDialogProps) {
 
         <Section title="Storage and backups">
           <div className="row-setting">
-            <DataChip mode={demo ? 'local' : profile.storageMode} />
+            {props.sync.connection && !demo ? (
+              <DataChip mode="self" where={hostOf(props.sync.connection.server)} />
+            ) : (
+              <DataChip
+                mode={
+                  demo ? 'local' : profile.storageMode === 'self' ? 'local' : profile.storageMode
+                }
+              />
+            )}
           </div>
           <p className="row-setting__hint">
             {demo
               ? 'The demo vault is kept in memory only. Closing the tab erases it.'
-              : "Encrypted in this browser's storage. Clearing this site's data in your browser erases the vault, so keep a backup somewhere else."}
+              : props.sync.connection
+                ? `Encrypted here, and kept in step through ${hostOf(props.sync.connection.server)}, which only holds ciphertext. Every signed-in device has a full copy.`
+                : "Encrypted in this browser's storage. Clearing this site's data in your browser erases the vault, so keep a backup somewhere else."}
           </p>
+          {!demo && (
+            <div className="row-setting">
+              <span className="row-setting__label">
+                Sync
+                <span className="row-setting__hint">
+                  {props.sync.connection
+                    ? `Signed in as ${props.sync.connection.email}`
+                    : 'Keep this vault in step across devices through a PassVaultify server you run.'}
+                </span>
+              </span>
+              <Button
+                icon="server"
+                onClick={() => {
+                  onOpenChange(false);
+                  props.onOpenSync();
+                }}
+              >
+                {props.sync.connection ? 'Manage…' : 'Connect…'}
+              </Button>
+            </div>
+          )}
           <div className="row-setting">
             <span className="row-setting__label">
               Encrypted backup
@@ -240,8 +277,9 @@ export function SettingsDialog(props: SettingsDialogProps) {
       <ChangePasswordDialog
         open={changeOpen}
         onOpenChange={setChangeOpen}
-        vault={vault}
         profile={profile}
+        synced={!!props.sync.connection}
+        onChange={props.onChangePassword}
       />
       <DeleteVaultDialog
         open={deleteOpen}
@@ -256,33 +294,43 @@ export function SettingsDialog(props: SettingsDialogProps) {
 function ChangePasswordDialog({
   open,
   onOpenChange,
-  vault,
   profile,
+  synced,
+  onChange,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  vault: Vault;
   profile: Profile;
+  synced: boolean;
+  onChange: (current: string, next: string) => Promise<void>;
 }) {
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
       title="Change master password"
-      description="Your items stay as they are: only the key that protects the vault key is re-encrypted."
+      description={
+        synced
+          ? 'Only the key that protects the vault key is re-encrypted. Your other devices will ask you to sign in with the new password.'
+          : 'Your items stay as they are: only the key that protects the vault key is re-encrypted.'
+      }
     >
-      <ChangePasswordForm vault={vault} profile={profile} onDone={() => onOpenChange(false)} />
+      <ChangePasswordForm
+        profile={profile}
+        onChange={onChange}
+        onDone={() => onOpenChange(false)}
+      />
     </Dialog>
   );
 }
 
 function ChangePasswordForm({
-  vault,
   profile,
+  onChange,
   onDone,
 }: {
-  vault: Vault;
   profile: Profile;
+  onChange: (current: string, next: string) => Promise<void>;
   onDone: () => void;
 }) {
   const toast = useToast();
@@ -305,13 +353,15 @@ function ChangePasswordForm({
     setBusy(true);
     setError(null);
     try {
-      await vault.changePassword(current, next);
+      await onChange(current, next);
       toast('Master password changed');
       onDone();
     } catch (err) {
       setBusy(false);
       setError(
-        err instanceof DecryptionError ? "That isn't your current master password." : String(err),
+        err instanceof DecryptionError
+          ? "That isn't your current master password."
+          : syncErrorText(err),
       );
     }
   };

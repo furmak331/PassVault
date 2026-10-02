@@ -6,6 +6,7 @@ import './styles/onboarding.css';
 import './styles/lock.css';
 import './styles/vault.css';
 import './styles/tools.css';
+import './styles/sync.css';
 import { App } from './App';
 import { registerPwa } from './pwa';
 

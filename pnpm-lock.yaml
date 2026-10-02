@@ -109,6 +109,9 @@ importers:
       fake-indexeddb:
         specifier: 6.2.5
         version: 6.2.5
+      playwright-core:
+        specifier: 1.56.1
+        version: 1.56.1
       typescript:
         specifier: 6.0.3
         version: 6.0.3
