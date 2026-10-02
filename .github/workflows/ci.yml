@@ -46,11 +46,14 @@ jobs:
       - run: pnpm --filter @passvaultify/extension build:e2e
       - run: node apps/extension/e2e/run.mjs
       - run: pnpm --filter @passvaultify/extension build
+      # Also checks that dist/ isn't the e2e build.
       - run: pnpm --filter @passvaultify/extension package
+      # GitHub zips every artifact, so upload the build itself: the download is
+      # then a zip with manifest.json at its root, ready for the store.
       - uses: actions/upload-artifact@v7
         with:
-          name: passvaultify-extension
-          path: apps/extension/release/*.zip
+          name: passvaultify-extension-for-store
+          path: apps/extension/dist/
           if-no-files-found: error
 
   vectors:
