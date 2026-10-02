@@ -12,9 +12,13 @@ pnpm --filter @passvaultify/extension build
 pnpm --filter @passvaultify/extension package
 ```
 
-This writes `apps/extension/release/passvaultify-<version>.zip`. CI builds the
-same zip on every push; you can download it from the run's **Artifacts**
-section instead.
+This writes `apps/extension/release/passvaultify-<version>.zip`.
+
+Or skip the local build: every CI run on `main` has a
+**passvaultify-extension-for-store** artifact. Download it from the run's
+**Artifacts** section and upload that zip to the dashboard as it is, without
+extracting it. It has `manifest.json` at its root, which is what the store
+checks for.
 
 The packaging script refuses an end-to-end test build (`build:e2e`), which
 grants itself access to localhost and must never ship.
