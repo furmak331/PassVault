@@ -55,6 +55,12 @@ export interface SyncClientOptions {
   tokens?: SyncTokens | null;
   /** Called whenever tokens change, to persist them; null after signing out. */
   onTokens?: (tokens: SyncTokens | null) => void | Promise<void>;
+  /**
+   * Reads the persisted tokens. Other tabs, or the extension's background,
+   * share them: before refreshing, the client checks whether one of them
+   * already did, because presenting a used refresh token ends the session.
+   */
+  readTokens?: () => Promise<SyncTokens | null>;
   fetch?: typeof fetch;
   now?: () => number;
 }
@@ -80,17 +86,29 @@ export class SyncClient {
   private readonly fetch: typeof fetch;
   private readonly now: () => number;
   private readonly onTokens: SyncClientOptions['onTokens'];
+  private readonly readTokens: SyncClientOptions['readTokens'];
 
   constructor(options: SyncClientOptions) {
     this.server = options.server.replace(/\/+$/, '');
     this.tokens = options.tokens ?? null;
     this.onTokens = options.onTokens;
+    this.readTokens = options.readTokens;
     this.fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.now = options.now ?? Date.now;
   }
 
   get signedIn(): boolean {
     return this.tokens !== null;
+  }
+
+  /** The current tokens, to persist them. */
+  getTokens(): SyncTokens | null {
+    return this.tokens ? { ...this.tokens } : null;
+  }
+
+  /** Replace the tokens with ones loaded from storage (no onTokens callback). */
+  useTokens(tokens: SyncTokens | null): void {
+    this.tokens = tokens;
   }
 
   // Server
@@ -266,11 +284,19 @@ export class SyncClient {
     await this.onTokens?.(tokens);
   }
 
-  /** One refresh at a time: concurrent requests share it, since each refresh token works once. */
+  /**
+   * One refresh at a time, across tabs too (Web Locks), since each refresh
+   * token works once. Inside the lock, tokens another context saved win.
+   */
   private refresh(): Promise<SyncTokens> {
     if (!this.refreshing) {
-      const refreshToken = this.tokens?.refreshToken;
-      this.refreshing = (async () => {
+      this.refreshing = withLock('passvaultify-token-refresh', async () => {
+        const stored = await this.readTokens?.();
+        if (stored && stored.refreshToken !== this.tokens?.refreshToken) {
+          this.tokens = stored;
+          if (this.now() < stored.expiresAt - EXPIRY_MARGIN_MS) return stored;
+        }
+        const refreshToken = this.tokens?.refreshToken;
         if (!refreshToken) throw new SyncError(401, 'Not signed in', 'Sign in to sync.');
         try {
           const tokens = this.fromWire(
@@ -282,7 +308,7 @@ export class SyncClient {
           if (error instanceof SyncError && error.signedOut) await this.setTokens(null);
           throw error;
         }
-      })().finally(() => {
+      }).finally(() => {
         this.refreshing = null;
       });
     }
@@ -346,6 +372,11 @@ export class SyncClient {
       ...(signal ? { signal } : {}),
     });
   }
+}
+
+async function withLock<T>(name: string, task: () => Promise<T>): Promise<T> {
+  const locks = (globalThis as { navigator?: { locks?: LockManager } }).navigator?.locks;
+  return locks ? locks.request(name, task) : task();
 }
 
 class ConflictResponse extends Error {

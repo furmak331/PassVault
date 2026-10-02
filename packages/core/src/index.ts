@@ -10,5 +10,7 @@ export * from './random';
 export * from './store';
 export * from './strength';
 export * from './sync/client';
+export * from './sync/connect';
+export * from './sync/engine';
 export * from './vault';
 export * from './wordlist/eff-large';
