@@ -5,6 +5,7 @@ export * from './encoding';
 export * from './generator';
 export * from './importers';
 export * from './items';
+export * from './match';
 export * from './random';
 export * from './store';
 export * from './strength';
