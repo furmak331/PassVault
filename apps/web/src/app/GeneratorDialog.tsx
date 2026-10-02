@@ -8,7 +8,16 @@ import {
   type Generated,
   type StrengthLevel,
 } from '@passvaultify/core';
-import { Badge, Button, Dialog, SecretText, Segmented, Switch, type Tone } from '@passvaultify/ui';
+import {
+  Badge,
+  Button,
+  Dialog,
+  Meter,
+  SecretText,
+  Segmented,
+  Switch,
+  type Tone,
+} from '@passvaultify/ui';
 import { useId, useState } from 'react';
 import { useCopy } from './hooks';
 
@@ -167,9 +176,14 @@ function Generator({ onUse }: { onUse: ((value: string) => void) | undefined }) 
       />
       <div className="gen__out">
         <SecretText value={result.value} revealed size="lg" />
+        <Meter
+          value={(Math.min(result.bits, 128) / 128) * 5}
+          tone={level.tone === 'danger' ? 'danger' : level.tone === 'warn' ? 'warn' : 'ok'}
+          label={`Entropy: ${Math.round(result.bits)} of 128 bits`}
+        />
         <div className="gen__meta">
           <Badge tone={level.tone}>{level.label}</Badge>
-          <span>{Math.round(result.bits)} bits</span>
+          <span className="gen__bits">{Math.round(result.bits)} bits</span>
           <span title="Average time at 10 billion guesses a second, a GPU rig against a fast-hashed leak">
             Cracked in {formatDuration(crackSeconds(result.bits))}
           </span>

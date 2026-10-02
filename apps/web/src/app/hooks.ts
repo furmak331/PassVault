@@ -21,6 +21,9 @@ export function useResolvedTheme(setting: ThemeSetting): 'graphite' | 'porcelain
 
 const ACTIVITY_EVENTS = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
 
+/** Time of the last user activity, shared by the idle lock and its countdown. */
+let lastActivity = Date.now();
+
 /**
  * Lock after `minutes` without user activity. Uses timestamps rather than one
  * long timer, so it still fires correctly after the tab was in the background
@@ -29,22 +32,34 @@ const ACTIVITY_EVENTS = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as con
 export function useIdleLock(enabled: boolean, minutes: number, onIdle: () => void) {
   useEffect(() => {
     if (!enabled || minutes <= 0) return;
-    let last = Date.now();
+    lastActivity = Date.now();
     const touch = () => {
-      last = Date.now();
+      lastActivity = Date.now();
     };
     const check = () => {
-      if (Date.now() - last >= minutes * 60_000) onIdle();
+      if (Date.now() - lastActivity >= minutes * 60_000) onIdle();
     };
     for (const e of ACTIVITY_EVENTS) window.addEventListener(e, touch, { passive: true });
     document.addEventListener('visibilitychange', check);
-    const timer = window.setInterval(check, 10_000);
+    const timer = window.setInterval(check, 1_000);
     return () => {
       for (const e of ACTIVITY_EVENTS) window.removeEventListener(e, touch);
       document.removeEventListener('visibilitychange', check);
       window.clearInterval(timer);
     };
   }, [enabled, minutes, onIdle]);
+}
+
+/** Whole seconds until the idle lock fires, or null when auto-lock is off. */
+export function useAutoLockRemaining(minutes: number): number | null {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (minutes <= 0) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [minutes]);
+  if (minutes <= 0) return null;
+  return Math.max(0, Math.ceil((lastActivity + minutes * 60_000 - now) / 1000));
 }
 
 /** Relative time like "3 days ago", with the exact date available for a title tooltip. */

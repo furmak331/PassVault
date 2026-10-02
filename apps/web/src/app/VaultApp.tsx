@@ -4,15 +4,17 @@ import {
   Button,
   DataChip,
   Dialog,
+  Fingerprint,
   Icon,
   IconButton,
   useToast,
   type IconName,
 } from '@passvaultify/ui';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { AppActions } from './App';
 import { GeneratorDialog } from './GeneratorDialog';
 import { ItemDetail } from './ItemDetail';
+import { useAutoLockRemaining, useRings } from './hooks';
 import { ItemForm, type ItemValues } from './ItemForm';
 import {
   avatarSeed,
@@ -44,13 +46,31 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
   const [revision, setRevision] = useState(0);
   const [filter, setFilter] = useState<Filter>({ kind: 'all' });
   const [query, setQuery] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Open on the first item, so the detail pane isn't empty on a wide screen.
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () => vault.list().sort(byTitle)[0]?.id ?? null,
+  );
+  const searchRef = useRef<HTMLInputElement>(null);
   const [pane, setPane] = useState<Pane>({ mode: 'view' });
   /** On narrow screens the list and the detail take turns. */
   const [showDetail, setShowDetail] = useState(false);
   const [generatorOpen, setGeneratorOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [purgeTarget, setPurgeTarget] = useState<VaultItem | 'all' | null>(null);
+
+  // "/" focuses search, as on most tools people already use.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const typing = target?.closest('input, textarea, [contenteditable="true"]');
+      if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const data = useMemo(() => {
     const active = vault.list();
@@ -261,18 +281,18 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
       />
     );
   } else {
-    detail = <EmptyDetail count={data.counts.all} trash={filter.kind === 'trash'} />;
+    detail = <EmptyDetail vault={vault} count={data.counts.all} trash={filter.kind === 'trash'} />;
   }
 
-  const greeting = profile.name.trim() ? `Hi, ${profile.name.trim()}` : profile.vaultName;
+  const groups = groupByLetter(visible, filter.kind !== 'trash' && !query.trim());
+  const searchCount = filter.kind === 'trash' ? data.counts.trash : data.counts.all;
 
   return (
-    <div className="shell" data-view={showDetail ? 'detail' : 'list'}>
+    <div className="shell" data-view={showDetail ? 'detail' : 'list'} data-demo={demo || undefined}>
       {demo && (
         <div className="demo-bar" role="note">
-          <span>
-            <strong>Demo vault.</strong> Sample data, kept in memory. Nothing you do here is saved.
-          </span>
+          <span className="pv-label">Demo</span>
+          <span>Sample data in memory. Nothing here is saved.</span>
           <button type="button" className="link" onClick={actions.exitDemo}>
             Create your own vault
           </button>
@@ -291,6 +311,7 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
           New item
         </Button>
         <nav className="side__nav">
+          <p className="pv-label side__group">Library</p>
           {navItems.map((n) => (
             <NavButton
               key={filterLabel(n.filter)}
@@ -301,7 +322,7 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
               onClick={() => chooseFilter(n.filter)}
             />
           ))}
-          {data.tags.length > 0 && <p className="side__group">Tags</p>}
+          {data.tags.length > 0 && <p className="pv-label side__group">Tags</p>}
           {data.tags.map((tag) => (
             <NavButton
               key={tag}
@@ -320,48 +341,39 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
             active={filter.kind === 'trash'}
             onClick={() => chooseFilter({ kind: 'trash' })}
           />
-        </nav>
-        <div className="side__foot">
           <NavButton icon="refresh" label="Generator" onClick={() => setGeneratorOpen(true)} />
           <NavButton icon="settings" label="Settings" onClick={() => setSettingsOpen(true)} />
-          <NavButton icon="lock" label="Lock vault" onClick={actions.lock} />
-          <div className="side__who">
-            <DataChip mode={demo ? 'local' : profile.storageMode} />
-          </div>
-        </div>
+        </nav>
+        <VaultStatus vault={vault} profile={profile} demo={demo} onLock={actions.lock} />
       </aside>
 
       <section className="list-pane" aria-label={filterLabel(filter)}>
-        <div className="topbar only-narrow">
-          <Brand />
-          <div className="topbar__tools">
-            <IconButton icon="plus" label="New item" onClick={() => startNew('login')} />
-            <IconButton
-              icon="refresh"
-              label="Password generator"
-              onClick={() => setGeneratorOpen(true)}
-            />
-            <IconButton icon="settings" label="Settings" onClick={() => setSettingsOpen(true)} />
-            <IconButton icon="lock" label="Lock vault" onClick={actions.lock} />
-          </div>
-        </div>
         <div className="list-head">
+          <div className="list-head__top only-narrow">
+            <Brand />
+          </div>
           <div className="list-head__title">
-            <h1>{filterLabel(filter)}</h1>
-            <span className="list-head__hello">{greeting}</span>
+            <h1 className="pv-display">{filterLabel(filter)}</h1>
+            <span className="list-head__count pv-num">{visible.length}</span>
           </div>
           <label className="search">
             <Icon name="search" />
             <span className="pv-sr">Search</span>
             <input
+              ref={searchRef}
               type="search"
-              placeholder={searchPlaceholder(
-                filter.kind === 'trash' ? data.counts.trash : data.counts.all,
-              )}
+              placeholder={searchPlaceholder(searchCount)}
               value={query}
               spellCheck={false}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setQuery('');
+                  e.currentTarget.blur();
+                }
+              }}
             />
+            {!query && <kbd className="pv-kbd">/</kbd>}
           </label>
           <div className="chips only-narrow" role="group" aria-label="Filter">
             {[
@@ -394,40 +406,52 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
           )}
         </div>
         {visible.length > 0 ? (
-          <ul className="items">
-            {visible.map((item) => {
-              const reused =
-                item.data.type === 'login' && (data.reuse.get(item.data.password)?.length ?? 0) > 1;
-              return (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    className="item-row"
-                    aria-current={
-                      item.id === selectedId && pane.mode === 'view' ? 'true' : undefined
-                    }
-                    onClick={() => open(item.id)}
-                  >
-                    <Avatar title={item.data.title} seed={avatarSeed(item)} />
-                    <span className="item-row__text">
-                      <span className="item-row__title">{item.data.title}</span>
-                      <span className="item-row__sub">{subtitle(item)}</span>
-                    </span>
-                    {reused && filter.kind !== 'trash' && (
-                      <span
-                        className="item-row__flag"
-                        title="Reused password"
-                        aria-label="Reused password"
-                      />
-                    )}
-                    {item.data.favorite && filter.kind !== 'favorites' && (
-                      <Icon name="star" className="item-row__fav" aria-label="Favorite" />
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="items" role="list">
+            {groups.map((group) => (
+              <div key={group.key} className="items__group" role="presentation">
+                {group.letter && (
+                  <p className="items__letter pv-label" aria-hidden="true">
+                    {group.letter}
+                  </p>
+                )}
+                {group.items.map((item) => {
+                  const reused =
+                    item.data.type === 'login' &&
+                    (data.reuse.get(item.data.password)?.length ?? 0) > 1;
+                  return (
+                    <div key={item.id} role="listitem">
+                      <button
+                        type="button"
+                        className="item-row"
+                        aria-current={
+                          item.id === selectedId && pane.mode === 'view' ? 'true' : undefined
+                        }
+                        onClick={() => open(item.id)}
+                      >
+                        <Avatar title={item.data.title} seed={avatarSeed(item)} />
+                        <span className="item-row__text">
+                          <span className="item-row__title">{item.data.title}</span>
+                          <span className="item-row__sub">{subtitle(item)}</span>
+                        </span>
+                        <span className="item-row__marks">
+                          {reused && filter.kind !== 'trash' && (
+                            <span
+                              className="item-row__flag"
+                              title="Reused password"
+                              aria-label="Reused password"
+                            />
+                          )}
+                          {item.data.favorite && (
+                            <Icon name="star" className="item-row__fav" aria-label="Favorite" />
+                          )}
+                        </span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         ) : (
           <EmptyList filter={filter} query={query} onNew={() => startNew('login')} />
         )}
@@ -436,6 +460,33 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
       <section className="detail-pane" aria-label="Item">
         {detail}
       </section>
+
+      <nav className="tabbar only-narrow" aria-label="Actions">
+        <button type="button" className="tabbar__btn" onClick={() => setShowDetail(false)}>
+          <Icon name="list" />
+          Items
+        </button>
+        <button type="button" className="tabbar__btn" onClick={() => setGeneratorOpen(true)}>
+          <Icon name="refresh" />
+          Generate
+        </button>
+        <button
+          type="button"
+          className="tabbar__btn tabbar__btn--new"
+          aria-label="New item"
+          onClick={() => startNew('login')}
+        >
+          <Icon name="plus" />
+        </button>
+        <button type="button" className="tabbar__btn" onClick={() => setSettingsOpen(true)}>
+          <Icon name="settings" />
+          Settings
+        </button>
+        <button type="button" className="tabbar__btn" onClick={actions.lock}>
+          <Icon name="lock" />
+          Lock
+        </button>
+      </nav>
 
       <GeneratorDialog open={generatorOpen} onOpenChange={setGeneratorOpen} />
       <SettingsDialog
@@ -482,6 +533,63 @@ function searchPlaceholder(count: number): string {
   return count === 1 ? 'Search 1 item' : `Search ${count} items`;
 }
 
+/** Split an alphabetical list into letter sections (numbers and symbols under #). */
+function groupByLetter(
+  items: VaultItem[],
+  enabled: boolean,
+): { key: string; letter: string | null; items: VaultItem[] }[] {
+  if (!enabled) return [{ key: 'all', letter: null, items }];
+  const groups: { key: string; letter: string | null; items: VaultItem[] }[] = [];
+  for (const item of items) {
+    const first = item.data.title.trim().charAt(0).toUpperCase();
+    const letter = /\p{L}/u.test(first) ? first : '#';
+    const last = groups.at(-1);
+    if (last?.letter === letter) last.items.push(item);
+    else groups.push({ key: letter, letter, items: [item] });
+  }
+  return groups;
+}
+
+/** Bottom of the sidebar: which vault is open, and when it will lock itself. */
+function VaultStatus({
+  vault,
+  profile,
+  demo,
+  onLock,
+}: {
+  vault: Vault;
+  profile: Profile;
+  demo: boolean;
+  onLock: () => void;
+}) {
+  const rings = useRings(vault.header.fingerprint);
+  return (
+    <div className="status">
+      <div className="status__id">
+        {rings && <Fingerprint bytes={rings} size={38} glyph="none" />}
+        <div className="status__text">
+          <span className="status__name">{profile.vaultName}</span>
+          <AutoLockReadout minutes={profile.autoLockMinutes} />
+        </div>
+        <IconButton icon="lock" label="Lock vault" onClick={onLock} />
+      </div>
+      <DataChip mode={demo ? 'local' : profile.storageMode} />
+    </div>
+  );
+}
+
+function AutoLockReadout({ minutes }: { minutes: number }) {
+  const remaining = useAutoLockRemaining(minutes);
+  if (remaining === null) return <span className="status__lock">Auto-lock off</span>;
+  const m = Math.floor(remaining / 60);
+  const s = String(remaining % 60).padStart(2, '0');
+  return (
+    <span className="status__lock pv-num" data-soon={remaining <= 60 || undefined}>
+      Locks in {m}:{s}
+    </span>
+  );
+}
+
 function NavButton({
   icon,
   label,
@@ -504,7 +612,7 @@ function NavButton({
     >
       <Icon name={icon} />
       <span className="nav-btn__label">{label}</span>
-      {count !== undefined && count > 0 && <span className="nav-btn__count">{count}</span>}
+      {count !== undefined && count > 0 && <span className="nav-btn__count pv-num">{count}</span>}
     </button>
   );
 }
@@ -513,8 +621,8 @@ function EmptyList({ filter, query, onNew }: { filter: Filter; query: string; on
   if (query.trim()) {
     return (
       <div className="empty">
-        <p className="empty__title">No matches for “{query.trim()}”</p>
-        <p>Search looks at titles, usernames, websites and tags.</p>
+        <p className="empty__title">Nothing matches “{query.trim()}”</p>
+        <p>Search covers titles, usernames, websites and tags. Never passwords or notes.</p>
       </div>
     );
   }
@@ -530,14 +638,14 @@ function EmptyList({ filter, query, onNew }: { filter: Filter; query: string; on
       return (
         <div className="empty">
           <p className="empty__title">No favorites yet</p>
-          <p>Star the items you use most and they'll gather here.</p>
+          <p>Star the items you open most and they'll gather here.</p>
         </div>
       );
     default:
       return (
         <div className="empty">
           <p className="empty__title">Nothing here yet</p>
-          <p>Add your first login. It's encrypted before it's saved.</p>
+          <p>Add your first login. It's sealed before it's saved.</p>
           <Button variant="primary" icon="plus" onClick={onNew}>
             New item
           </Button>
@@ -546,20 +654,28 @@ function EmptyList({ filter, query, onNew }: { filter: Filter; query: string; on
   }
 }
 
-function EmptyDetail({ count, trash }: { count: number; trash: boolean }) {
+function EmptyDetail({ vault, count, trash }: { vault: Vault; count: number; trash: boolean }) {
+  const rings = useRings(vault.header.fingerprint);
   return (
     <div className="empty empty--detail">
-      <span className="empty__icon">
-        <Icon name={trash ? 'trash' : 'shield'} />
-      </span>
+      {rings && (
+        <span className="empty__dial">
+          <Fingerprint bytes={rings} size={168} bezel glyph="none" />
+        </span>
+      )}
       <p className="empty__title">
         {trash ? 'Select an item to restore it' : count ? 'Select an item' : 'Your vault is ready'}
       </p>
       <p>
         {count
-          ? `${count} ${count === 1 ? 'item' : 'items'}, encrypted with AES-256-GCM.`
-          : 'Everything you add is encrypted on this device first.'}
+          ? `${count} ${count === 1 ? 'item' : 'items'}, each sealed with AES-256-GCM.`
+          : 'Everything you add is sealed on this device first.'}
       </p>
+      {!trash && (
+        <p className="empty__keys">
+          <kbd className="pv-kbd">/</kbd> to search
+        </p>
+      )}
     </div>
   );
 }

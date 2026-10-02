@@ -58,6 +58,11 @@ from a fresh run.
 
 ## The web vault
 
+The design treats the vault as a precision instrument: the vault fingerprint
+is a combination dial, structure comes from hairlines rather than cards, and a
+single signal color marks what needs attention. The reasoning is in
+[ADR 0006](docs/adr/0006-tumbler-visual-language.md).
+
 - **Onboarding** that explains the one thing users must know: there's no
   password reset. Master-password strength is estimated with zxcvbn, shown as
   the offline guessing time against a stolen copy.

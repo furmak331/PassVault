@@ -93,16 +93,19 @@ export function ItemForm({ item, reuse, onSave, onCancel }: ItemFormProps) {
         if (e.key === 'Escape' && !generatorOpen) onCancel();
       }}
     >
-      <header className="detail__head">
+      <div className="detail__bar">
         <IconButton icon="back" label="Cancel" className="only-narrow" onClick={onCancel} />
-        <h2 className="detail__title">{item ? 'Edit item' : 'New item'}</h2>
-        <div className="detail__tools">
-          <Button onClick={onCancel}>Cancel</Button>
-          <Button variant="primary" type="submit" disabled={!title || busy}>
-            Save
-          </Button>
-        </div>
-      </header>
+        <span className="pv-label">{item ? 'Editing' : 'New item'}</span>
+        <span className="detail__spacer" />
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button variant="primary" type="submit" disabled={!title || busy}>
+          Save
+        </Button>
+      </div>
+      {/* The title echoes as you type, set the way it will appear. */}
+      <h2 className="pv-display detail__title item-form__title" data-empty={!title || undefined}>
+        {title || (login ? 'Untitled login' : 'Untitled note')}
+      </h2>
 
       {!item && (
         <Segmented
