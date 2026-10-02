@@ -9,5 +9,6 @@ export * from './match';
 export * from './random';
 export * from './store';
 export * from './strength';
+export * from './sync/client';
 export * from './vault';
 export * from './wordlist/eff-large';
