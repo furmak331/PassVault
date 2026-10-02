@@ -1,6 +1,8 @@
 /* ---------- Lock screen ---------- */
 .lock {
   display: grid;
+  /* An explicit column, so a long line can't widen the page past the window. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-height: 100dvh;
   padding: max(22px, env(safe-area-inset-top)) clamp(20px, 4vw, 48px)
@@ -12,6 +14,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+}
+.lock__tools {
+  display: flex;
+  align-items: center;
   gap: 12px;
 }
 .lock__stage {
@@ -240,4 +247,11 @@
 .lock[data-state='working'] .combo__go:disabled,
 .lock[data-state='open'] .combo__go:disabled {
   opacity: 1;
+}
+
+/* Very narrow phones: the dial mark alone carries the brand in the top bar. */
+@media (max-width: 420px) {
+  .lock__bar .brand__name {
+    display: none;
+  }
 }

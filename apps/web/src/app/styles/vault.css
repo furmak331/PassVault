@@ -38,9 +38,9 @@
   grid-area: side;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   min-height: 0;
-  padding: 18px 12px 14px;
+  padding: 16px 12px 12px;
   border-right: 1px solid var(--pv-line);
 }
 .side__brand {
@@ -60,14 +60,14 @@
   padding-inline: 4px;
 }
 .side__group {
-  margin: 14px 10px 6px;
+  margin: 12px 10px 4px;
 }
 .side__group:first-child {
-  margin-top: 4px;
+  margin-top: 2px;
 }
 .side__sep {
   height: 1px;
-  margin: 12px 10px;
+  margin: 6px 10px;
   background: var(--pv-line);
 }
 .nav-btn {
@@ -76,7 +76,7 @@
   align-items: center;
   gap: 11px;
   width: 100%;
-  min-height: 32px;
+  min-height: 30px;
   padding: 0 10px;
   border: 0;
   border-radius: var(--pv-radius);
@@ -131,8 +131,14 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px 6px 2px;
+  padding: 12px 4px 0;
   border-top: 1px solid var(--pv-line);
+}
+.status__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 .status__id {
   display: flex;
@@ -162,7 +168,7 @@
   color: var(--pv-warn);
 }
 .status .pv-chip {
-  align-self: flex-start;
+  min-width: 0;
 }
 
 /* ---------- List ---------- */
@@ -677,7 +683,7 @@
 
 /* ---------- Item form ---------- */
 .item-form {
-  gap: 20px;
+  gap: 16px;
 }
 .item-form__title[data-empty] {
   color: var(--pv-ink-3);
@@ -911,11 +917,12 @@
 
 @media (max-width: 1100px) {
   .shell {
-    grid-template-columns: 210px minmax(260px, 310px) minmax(0, 1fr);
+    grid-template-columns: 204px minmax(250px, 300px) minmax(0, 1fr);
   }
 }
 
-@media (max-width: 760px) {
+/* Below this, three columns get too narrow (tablets in portrait, phones). */
+@media (max-width: 900px) {
   .only-narrow {
     display: flex !important;
   }
@@ -972,21 +979,6 @@
   .detail__hero {
     gap: 14px;
   }
-  .sheet__row,
-  .history__row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
-  }
-  .history__row .sheet__actions {
-    justify-self: end;
-  }
-  .sheet__label {
-    padding-top: 6px;
-  }
-  .flag {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
-  }
   .tabbar {
     display: grid !important;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1023,5 +1015,29 @@
   }
   .tabbar__btn--new .pv-icon {
     stroke-width: 2.2;
+  }
+}
+
+/* Phones: labels go above their values, and toasts clear the tab bar. */
+@media (max-width: 600px) {
+  .sheet__row,
+  .history__row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .history__row .sheet__actions {
+    justify-self: end;
+  }
+  .sheet__label {
+    padding-top: 6px;
+  }
+  .flag {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}
+@media (max-width: 900px) {
+  body:has(.tabbar) .pv-toasts {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 76px);
   }
 }
