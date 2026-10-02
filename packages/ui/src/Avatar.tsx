@@ -4,15 +4,16 @@ import type { CSSProperties } from 'react';
  * Monogram avatar for vault items. Drawn locally: fetching favicons from a
  * third-party service would leak the user's list of sites.
  */
+// Mid-tone hues that read on both the warm light and dark surfaces.
 const HUES = [
-  '#8aa2ff',
-  '#4fd1a5',
-  '#f0b650',
-  '#ff8aa5',
-  '#b79cff',
-  '#5ec8e5',
-  '#f2707f',
-  '#9ad66b',
+  '#e2683a',
+  '#3aa476',
+  '#c99326',
+  '#6a82e6',
+  '#cf6593',
+  '#33a0b2',
+  '#9a7ae0',
+  '#8ea23a',
 ];
 
 export function avatarColor(seed: string): string {
