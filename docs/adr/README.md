@@ -13,3 +13,4 @@ a later record supersedes an earlier one instead.
 | [0005](0005-design-system.md)           | Own design system, self-hosted fonts               | Accepted; visual direction superseded by 0006 |
 | [0006](0006-tumbler-visual-language.md) | "Tumbler": the vault as a precision instrument     | Accepted                                      |
 | [0007](0007-backups-and-offline.md)     | Backups are the vault; offline without a framework | Accepted                                      |
+| [0008](0008-chrome-extension.md)        | The Chrome extension holds its own vault           | Accepted                                      |

@@ -175,7 +175,7 @@ function Generator({ onUse }: { onUse: ((value: string) => void) | undefined }) 
         onChange={(mode) => set({ mode })}
       />
       <div className="gen__out">
-        <SecretText value={result.value} revealed size="lg" />
+        <SecretText value={result.value} revealed size="lg" group={options.mode === 'random'} />
         <Meter
           value={(Math.min(result.bits, 128) / 128) * 5}
           tone={level.tone === 'danger' ? 'danger' : level.tone === 'warn' ? 'warn' : 'ok'}

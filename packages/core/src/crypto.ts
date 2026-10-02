@@ -214,6 +214,37 @@ export async function unlockVault(password: string, header: VaultHeader): Promis
   return { header, vaultKey, authKey };
 }
 
+/**
+ * Unwrap the raw vault key. For clients whose code can be stopped and
+ * restarted mid-session (a browser extension's service worker), which keep the
+ * key in memory-only session storage instead of asking for the password again.
+ * The caller owns these bytes: never persist them, and wipe them when done.
+ */
+export async function unwrapVaultKey(password: string, header: VaultHeader): Promise<Bytes> {
+  if (header.format !== FORMAT)
+    throw new Error(`Unsupported vault format: ${String(header.format)}`);
+  const masterKey = await deriveMasterKey(password, header.kdf);
+  const { authKey, wrapKey } = await deriveSubkeys(masterKey);
+  const vaultKeyBytes = await open(wrapKey, header.wrappedVaultKey, AAD_VAULT_KEY);
+  wipe(masterKey, wrapKey, authKey);
+  if ((await computeFingerprint(vaultKeyBytes)).code !== header.fingerprint) {
+    wipe(vaultKeyBytes);
+    throw new DecryptionError('Vault fingerprint does not match');
+  }
+  return vaultKeyBytes;
+}
+
+/**
+ * Turn raw vault key bytes back into a non-extractable key, checking that they
+ * belong to this vault. Throws DecryptionError if they don't.
+ */
+export async function importVaultKey(bytes: Bytes, header: VaultHeader): Promise<CryptoKey> {
+  if ((await computeFingerprint(bytes)).code !== header.fingerprint) {
+    throw new DecryptionError('Key does not belong to this vault');
+  }
+  return aesKey(bytes);
+}
+
 /** Re-wrap the same vault key under a new password. No item is re-encrypted. */
 export async function changePassword(
   oldPassword: string,

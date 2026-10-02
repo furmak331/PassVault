@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Privacy · PassVaultify</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        --bg: #f1eee6;
+        --raised: #e7e3d8;
+        --line: #dcd7cb;
+        --ink: #151513;
+        --ink-2: #57544c;
+        --acc: #ec4a0f;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0e0e0c;
+          --raised: #1d1d1a;
+          --line: #282825;
+          --ink: #efece4;
+          --ink-2: #aaa69b;
+          --acc: #ff5c1f;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          16px/1.6 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 56px 16px 80px;
+      }
+      .label {
+        margin: 0 0 12px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--acc);
+      }
+      h1 {
+        margin: 0 0 16px;
+        font-size: clamp(34px, 7vw, 52px);
+        line-height: 1;
+        letter-spacing: -0.035em;
+        font-weight: 800;
+      }
+      h1 span {
+        color: var(--acc);
+      }
+      h2 {
+        margin: 40px 0 8px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        font-size: 19px;
+        letter-spacing: -0.01em;
+      }
+      p,
+      li {
+        color: var(--ink-2);
+      }
+      strong {
+        color: var(--ink);
+      }
+      ul {
+        padding-left: 20px;
+      }
+      li + li {
+        margin-top: 6px;
+      }
+      .lede {
+        font-size: 19px;
+        color: var(--ink);
+      }
+      .summary {
+        margin: 28px 0 0;
+        padding: 18px 20px;
+        border-radius: 12px;
+        background: var(--raised);
+      }
+      .summary p {
+        margin: 0;
+        color: var(--ink);
+      }
+      code {
+        font-size: 0.92em;
+      }
+      a {
+        color: var(--ink);
+        text-decoration-color: var(--acc);
+        text-underline-offset: 3px;
+      }
+      footer {
+        margin-top: 48px;
+        font-size: 14px;
+        color: var(--ink-2);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="label">PassVaultify</p>
+      <h1>Privacy policy<span>.</span></h1>
+      <p class="lede">
+        This covers the PassVaultify web vault and the PassVaultify extension for Chrome. The short
+        version: your passwords never leave your device, and we couldn't read them if they did.
+      </p>
+      <div class="summary">
+        <p>
+          PassVaultify has no accounts, no servers, no analytics and no ads. It makes no network
+          requests with your data. Everything it stores is in your own browser.
+        </p>
+      </div>
+
+      <h2>What is stored, and where</h2>
+      <ul>
+        <li>
+          <strong>Your vault.</strong> Logins, notes and tags are encrypted on your device with a
+          key derived from your master password (AES-256-GCM, PBKDF2-SHA256 with 600,000
+          iterations). The encrypted vault is kept in your browser's storage: IndexedDB for the web
+          vault, and the extension's own local storage for the extension.
+        </li>
+        <li>
+          <strong>Your master password</strong> is never stored or sent anywhere. Nobody can reset
+          it, including us.
+        </li>
+        <li>
+          <strong>While unlocked</strong>, the extension keeps the vault key in Chrome's session
+          storage, which lives in memory, is private to the extension, and is cleared when the vault
+          locks, when your computer locks, or when Chrome closes.
+        </li>
+        <li>
+          <strong>Preferences</strong> are stored unencrypted next to the vault: the vault's name,
+          theme and colour, auto-lock time, whether save prompts are on, and the date of your last
+          backup.
+        </li>
+        <li>
+          <strong>Backups</strong> are files you download yourself. They stay encrypted with your
+          master password.
+        </li>
+      </ul>
+
+      <h2>What the extension can see on web pages</h2>
+      <p>By default, nothing until you ask. Chrome only lets it into a tab when you click it.</p>
+      <ul>
+        <li>
+          <strong>When you open the popup</strong>, it reads the address of the current tab to show
+          the logins saved for that site.
+        </li>
+        <li>
+          <strong>When you choose Fill</strong>, it checks the page for sign-in fields and fills
+          them, but only if the page's address matches a site saved with that login.
+        </li>
+        <li>
+          <strong>If you turn on "Offer to save new logins"</strong>, Chrome asks you to grant it
+          access to the sites you visit. It then notices sign-in forms as you submit them and reads
+          the username and password from that form, and nothing else on the page. They are held in
+          memory for up to five minutes so it can offer to save them, then discarded. You can turn
+          this off at any time, and the access is removed with it.
+        </li>
+      </ul>
+
+      <h2>What is shared</h2>
+      <p>
+        Nothing. PassVaultify does not sell, transfer or share your data with anyone, does not use
+        it for advertising or credit decisions, and has no way to see it. There is no telemetry or
+        crash reporting.
+      </p>
+      <p>
+        The use of information received through Chrome's extension APIs adheres to the Chrome Web
+        Store User Data Policy, including the Limited Use requirements.
+      </p>
+
+      <h2>Deleting your data</h2>
+      <p>
+        Remove the vault from the extension's settings, or uninstall the extension; Chrome deletes
+        its storage. In the web vault, use "Delete this vault" in Settings, or clear the site's data
+        in your browser. Any backup files you downloaded are yours to delete.
+      </p>
+
+      <h2>Future sync</h2>
+      <p>
+        Optional sync, to a server you run or a hosted one, is planned. When it arrives it will only
+        ever receive encrypted data, and this policy will be updated before it ships.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Questions or concerns: open an issue at
+        <a href="https://github.com/furmak331/PassVault/issues">github.com/furmak331/PassVault</a>.
+      </p>
+
+      <footer>Last updated 2 October 2026.</footer>
+    </main>
+  </body>
+</html>

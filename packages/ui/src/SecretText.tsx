@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 
 const GLYPHS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789#$%&*+=?@';
 const MASK = '•'.repeat(12);
@@ -36,13 +36,21 @@ export interface SecretTextProps {
   size?: 'md' | 'lg';
   /** Duration of the decrypt animation in ms; 0 disables it. */
   duration?: number;
+  /** Space characters in groups of four. Off for passphrases, which have their own words. */
+  group?: boolean;
 }
 
 /**
  * Masked secret that resolves from scrambled characters when revealed.
  * Digits and symbols get their own colors so look-alikes are easy to tell apart.
  */
-export function SecretText({ value, revealed, size = 'md', duration }: SecretTextProps) {
+export function SecretText({
+  value,
+  revealed,
+  size = 'md',
+  duration,
+  group = true,
+}: SecretTextProps) {
   const [glyphs, setGlyphs] = useState<Glyph[] | null>(null);
 
   useEffect(() => {
@@ -81,6 +89,7 @@ export function SecretText({ value, revealed, size = 'md', duration }: SecretTex
     <span
       className={className}
       data-revealed="true"
+      data-grouped={group}
       aria-label={done ? undefined : 'Revealing password'}
     >
       {glyphs.map((g, i) => {
@@ -93,9 +102,11 @@ export function SecretText({ value, revealed, size = 'md', duration }: SecretTex
         }
         const kind = charKind(g.ch);
         return (
-          <span key={i} className={kind === 'letter' ? undefined : `pv-ch-${kind}`}>
-            {g.ch}
-          </span>
+          <Fragment key={i}>
+            <span className={kind === 'letter' ? undefined : `pv-ch-${kind}`}>{g.ch}</span>
+            {/* Ungrouped text (a passphrase) wraps after a separator, not mid-word. */}
+            {!group && kind === 'symbol' && <wbr />}
+          </Fragment>
         );
       })}
     </span>

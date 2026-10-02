@@ -30,6 +30,29 @@ jobs:
       - run: pnpm build
       - run: pnpm spec:lint
 
+  extension:
+    name: Chrome extension (end to end, package)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @passvaultify/extension exec playwright-core install --with-deps chromium
+      # The e2e build grants itself localhost access; it is tested, never shipped.
+      - run: pnpm --filter @passvaultify/extension build:e2e
+      - run: node apps/extension/e2e/run.mjs
+      - run: pnpm --filter @passvaultify/extension build
+      - run: pnpm --filter @passvaultify/extension package
+      - uses: actions/upload-artifact@v7
+        with:
+          name: passvaultify-extension
+          path: apps/extension/release/*.zip
+          if-no-files-found: error
+
   vectors:
     name: Crypto test vectors are reproducible
     runs-on: ubuntu-latest

@@ -90,6 +90,29 @@ export class Vault {
     const header = await store.loadHeader();
     if (!header) throw new Error('No vault in this store');
     const { vaultKey } = await unlockVault(password, header);
+    return Vault.load(store, header, vaultKey, options);
+  }
+
+  /**
+   * Open a vault with a key already in hand (see unwrapVaultKey), for clients
+   * that resume a session without asking for the password again.
+   */
+  static async open(
+    store: VaultStore,
+    vaultKey: CryptoKey,
+    options: VaultOptions = {},
+  ): Promise<Vault> {
+    const header = await store.loadHeader();
+    if (!header) throw new Error('No vault in this store');
+    return Vault.load(store, header, vaultKey, options);
+  }
+
+  private static async load(
+    store: VaultStore,
+    header: VaultHeader,
+    vaultKey: CryptoKey,
+    options: VaultOptions,
+  ): Promise<Vault> {
     const vault = new Vault(store, header, vaultKey, options);
     for (const record of await store.loadRecords()) {
       vault.revisions.set(record.id, record.revision);

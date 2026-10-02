@@ -4,11 +4,12 @@ A zero-knowledge password manager. You choose where your vault lives: only on
 your machine, on a server you run, or in the cloud. In every mode it's
 encrypted on your device first, so nobody else can read it.
 
-> **Status:** P1 complete (web vault, local-only). The web vault works end to
-> end on one device and installs as an offline app: create or restore a vault,
-> import from other password managers, and keep encrypted backups. The Chrome
-> extension and sync come next. This is an educational project and has not
-> been independently audited.
+> **Status:** P2 complete (Chrome extension). The web vault works end to end on
+> one device and installs as an offline app: create or restore a vault, import
+> from other password managers, and keep encrypted backups. The Chrome
+> extension fills logins only on their own site and moves vaults to and from
+> the web app with those backups. Sync comes next. This is an educational
+> project and has not been independently audited.
 
 **Try it:** [furmak331.github.io/PassVault](https://furmak331.github.io/PassVault/).
 Pick "Explore the demo vault" for sample data (password
@@ -20,6 +21,7 @@ The design system lives at [`specimen.html`](https://furmak331.github.io/PassVau
 ```
 apps/
   web/         React + Vite web vault, plus the design-system specimen
+  extension/   Chrome extension (Manifest V3): popup, settings page, autofill
   cli/         The original Java CLI (becomes a pvf1 client in P5)
 packages/
   core/        Crypto (pvf1), vault model, generator, strength. Web Crypto only
@@ -93,6 +95,45 @@ single signal color marks what needs attention. The reasoning is in
   files of each release, so the app opens with no connection; a new version is
   offered, never forced. A strict Content Security Policy allows code and data
   from this origin only.
+
+## The Chrome extension
+
+The extension keeps its own encrypted vault in the browser, in the same format
+as the web vault. The reasoning is in
+[ADR 0008](docs/adr/0008-chrome-extension.md).
+
+- **Fills only where a login belongs:** the saved site or its subdomains,
+  https never downgraded to http, and shared hosts such as `github.io` matched
+  exactly. The page's address is checked again right before filling.
+- **No permission warnings at install.** It can only touch a tab you click it
+  on. Save prompts for new logins are optional and off by default; turning
+  them on asks for site access, turning them off removes it.
+- **Locks itself** after the idle time you choose, when the computer locks,
+  or when Chrome closes. While unlocked, the key is held in Chrome's
+  in-memory session storage, out of reach of web pages.
+- **Popup** with the lock dial, the logins for the current site, search, copy,
+  fill (Ctrl+Shift+L), a generator and quick add.
+- **Works with the web vault through backups:** restore a web-app backup to
+  set it up, then download or merge backups either way.
+
+```bash
+pnpm --filter @passvaultify/extension build     # unpacked build in apps/extension/dist
+pnpm --filter @passvaultify/extension package   # store zip in apps/extension/release
+```
+
+Load `apps/extension/dist` from `chrome://extensions` with Developer mode on.
+To run the end-to-end test in a real Chromium:
+
+```bash
+pnpm --filter @passvaultify/extension build:e2e
+CHROMIUM_PATH=/path/to/chrome node apps/extension/e2e/run.mjs
+```
+
+Publishing to the Chrome Web Store is covered step by step in
+[docs/publishing-extension.md](docs/publishing-extension.md). The store text
+and images are in [`apps/extension/store`](apps/extension/store), and the
+privacy policy is at
+[furmak331.github.io/PassVault/privacy.html](https://furmak331.github.io/PassVault/privacy.html).
 
 ## How the crypto works
 

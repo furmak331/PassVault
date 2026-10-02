@@ -14,5 +14,6 @@ prime/
 # Node / TypeScript
 node_modules/
 dist/
+release/
 .turbo/
 *.tsbuildinfo
