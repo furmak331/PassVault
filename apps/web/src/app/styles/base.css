@@ -33,9 +33,8 @@ body {
   stroke-width: 2;
 }
 .brand__index {
-  stroke: var(--pv-acc);
-  stroke-width: 2.6;
-  stroke-linecap: round;
+  fill: var(--pv-acc);
+  stroke: none;
 }
 
 /* The full stop on display titles carries the signal color: the one flourish. */

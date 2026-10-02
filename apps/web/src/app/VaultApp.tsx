@@ -10,11 +10,16 @@ import {
   useToast,
   type IconName,
 } from '@passvaultify/ui';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { AppActions } from './App';
 import { GeneratorDialog } from './GeneratorDialog';
 import { ItemDetail } from './ItemDetail';
-import { useAutoLockRemaining, useRings } from './hooks';
+import { CommandPalette, type PaletteCommand } from './CommandPalette';
+import { modKey } from './files';
+import { useAutoLockRemaining, useCopy, useRings } from './hooks';
+import { ImportDialog } from './ImportDialog';
+import { promptInstall, useCanInstall } from './pwa';
+import { ShortcutsDialog } from './ShortcutsDialog';
 import { ItemForm, type ItemValues } from './ItemForm';
 import {
   avatarSeed,
@@ -28,7 +33,7 @@ import {
   type Filter,
 } from './model';
 import { Brand } from './Onboarding';
-import type { Profile, ThemeSetting } from './profile';
+import { backupIsStale, type Profile, type ThemeSetting } from './profile';
 import { SettingsDialog } from './SettingsDialog';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -58,22 +63,11 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
   const [generatorOpen, setGeneratorOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [purgeTarget, setPurgeTarget] = useState<VaultItem | 'all' | null>(null);
-
-  // "/" focuses search, as on most tools people already use.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const typing = target?.closest('input, textarea, [contenteditable="true"]');
-      // Not while a dialog is open: search sits behind it.
-      const modal = document.querySelector('[role="dialog"]');
-      if (e.key === '/' && !typing && !modal && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const copy = useCopy();
+  const canInstall = useCanInstall();
 
   const data = useMemo(() => {
     const active = vault.list();
@@ -243,6 +237,261 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
     { filter: { kind: 'type', type: 'note' }, icon: 'note', count: data.counts.note },
   ];
 
+  const copyField = (item: VaultItem | undefined, field: 'password' | 'username') => {
+    if (item?.data.type !== 'login') return;
+    const value = item.data[field];
+    if (value) copy(value, field === 'password' ? 'Password' : 'Username');
+    else toast(`${item.data.title} has no ${field}`);
+  };
+
+  /** Keyboard selection: move through the list without leaving the keys. */
+  const moveSelection = (delta: number) => {
+    if (visible.length === 0) return;
+    const index = visible.findIndex((i) => i.id === selectedId);
+    const next = visible[Math.max(0, Math.min(visible.length - 1, index + delta))];
+    if (!next) return;
+    setSelectedId(next.id);
+    setPane({ mode: 'view' });
+    requestAnimationFrame(() =>
+      document.querySelector('.item-row[aria-current]')?.scrollIntoView({ block: 'nearest' }),
+    );
+  };
+
+  const onShortcut = useEffectEvent((e: KeyboardEvent) => {
+    const target = e.target as HTMLElement | null;
+    const typing = !!target?.closest('input, textarea, select, [contenteditable="true"]');
+    const modal = !!document.querySelector('[role="dialog"]');
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      if (paletteOpen || !modal) setPaletteOpen(!paletteOpen);
+      return;
+    }
+    // Single keys only when they can't be meant as typing, and not behind a dialog.
+    if (typing || modal || mod || e.altKey) return;
+    const current = selected && visible.some((i) => i.id === selected.id) ? selected : undefined;
+    const inTrash = current?.data.trashedAt != null;
+    switch (e.key) {
+      case '/':
+        searchRef.current?.focus();
+        break;
+      case 'n':
+        startNew('login');
+        break;
+      case 'g':
+        setGeneratorOpen(true);
+        break;
+      case 'l':
+        actions.lock();
+        break;
+      case '?':
+        setShortcutsOpen(true);
+        break;
+      case 'j':
+      case 'ArrowDown':
+        moveSelection(1);
+        break;
+      case 'k':
+      case 'ArrowUp':
+        moveSelection(-1);
+        break;
+      case 'c':
+        copyField(current, 'password');
+        break;
+      case 'u':
+        copyField(current, 'username');
+        break;
+      case 'e':
+        if (!current || inTrash) return;
+        setPane({ mode: 'edit', id: current.id });
+        setShowDetail(true);
+        break;
+      case 'f':
+        if (!current || inTrash) return;
+        void run(() => vault.update(current.id, { favorite: !current.data.favorite }));
+        break;
+      case 'Delete':
+      case 'Backspace':
+        if (!current || inTrash || pane.mode !== 'view') return;
+        void moveToTrash(current);
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+  });
+
+  useEffect(() => {
+    const listener = (e: KeyboardEvent) => onShortcut(e);
+    window.addEventListener('keydown', listener);
+    return () => window.removeEventListener('keydown', listener);
+  }, []);
+
+  const goTo = (next: Filter) => {
+    setQuery('');
+    chooseFilter(next);
+  };
+  const commands: PaletteCommand[] = [
+    {
+      id: 'new-login',
+      section: 'Actions',
+      label: 'New login',
+      icon: 'plus',
+      shortcut: 'N',
+      keywords: 'add create password',
+      run: () => startNew('login'),
+    },
+    {
+      id: 'new-note',
+      section: 'Actions',
+      label: 'New secure note',
+      icon: 'note',
+      keywords: 'add create text',
+      run: () => startNew('note'),
+    },
+    {
+      id: 'generate',
+      section: 'Actions',
+      label: 'Generate a password',
+      icon: 'refresh',
+      shortcut: 'G',
+      keywords: 'generator passphrase pin random',
+      run: () => setGeneratorOpen(true),
+    },
+    {
+      id: 'import',
+      section: 'Vault',
+      label: 'Import passwords…',
+      icon: 'upload',
+      keywords: 'csv chrome firefox bitwarden 1password backup restore merge',
+      run: () => setImportOpen(true),
+    },
+    {
+      id: 'backup',
+      section: 'Vault',
+      label: 'Download encrypted backup',
+      icon: 'download',
+      keywords: 'export save file',
+      run: () => void actions.exportBackup().then(() => toast('Backup downloaded')),
+    },
+    {
+      id: 'settings',
+      section: 'Vault',
+      label: 'Settings',
+      icon: 'settings',
+      keywords: 'preferences profile auto-lock master password',
+      run: () => setSettingsOpen(true),
+    },
+    {
+      id: 'shortcuts',
+      section: 'Vault',
+      label: 'Keyboard shortcuts',
+      icon: 'keyboard',
+      shortcut: '?',
+      keywords: 'keys help',
+      run: () => setShortcutsOpen(true),
+    },
+    {
+      id: 'lock',
+      section: 'Vault',
+      label: 'Lock vault',
+      icon: 'lock',
+      shortcut: 'L',
+      run: actions.lock,
+    },
+    {
+      id: 'go-all',
+      section: 'Go to',
+      label: 'All items',
+      icon: 'list',
+      run: () => goTo({ kind: 'all' }),
+    },
+    {
+      id: 'go-fav',
+      section: 'Go to',
+      label: 'Favorites',
+      icon: 'star',
+      run: () => goTo({ kind: 'favorites' }),
+    },
+    {
+      id: 'go-logins',
+      section: 'Go to',
+      label: 'Logins',
+      icon: 'key',
+      run: () => goTo({ kind: 'type', type: 'login' }),
+    },
+    {
+      id: 'go-notes',
+      section: 'Go to',
+      label: 'Secure notes',
+      icon: 'note',
+      run: () => goTo({ kind: 'type', type: 'note' }),
+    },
+    {
+      id: 'go-trash',
+      section: 'Go to',
+      label: 'Trash',
+      icon: 'trash',
+      keywords: 'deleted',
+      run: () => goTo({ kind: 'trash' }),
+    },
+    ...data.tags.map((tag): PaletteCommand => ({
+      id: `tag-${tag}`,
+      section: 'Go to',
+      label: `#${tag}`,
+      icon: 'tag',
+      keywords: 'tag',
+      run: () => goTo({ kind: 'tag', tag }),
+    })),
+    {
+      id: 'theme-system',
+      section: 'Appearance',
+      label: 'Theme: match system',
+      icon: 'contrast',
+      keywords: 'auto appearance',
+      run: () => actions.changeTheme('system'),
+    },
+    {
+      id: 'theme-light',
+      section: 'Appearance',
+      label: 'Theme: light',
+      icon: 'sun',
+      keywords: 'porcelain day appearance',
+      run: () => actions.changeTheme('porcelain'),
+    },
+    {
+      id: 'theme-dark',
+      section: 'Appearance',
+      label: 'Theme: dark',
+      icon: 'moon',
+      keywords: 'graphite night appearance',
+      run: () => actions.changeTheme('graphite'),
+    },
+    ...(canInstall
+      ? [
+          {
+            id: 'install',
+            section: 'Vault' as const,
+            label: 'Install PassVaultify as an app',
+            icon: 'download' as const,
+            keywords: 'pwa desktop offline home screen',
+            run: () => void promptInstall(),
+          },
+        ]
+      : []),
+    ...(demo
+      ? [
+          {
+            id: 'leave-demo',
+            section: 'Vault' as const,
+            label: 'Leave the demo',
+            icon: 'back' as const,
+            run: actions.exitDemo,
+          },
+        ]
+      : []),
+  ];
+
   let detail: ReactNode;
   if (pane.mode === 'new' || (pane.mode === 'edit' && editing)) {
     detail = (
@@ -250,6 +499,7 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
         key={pane.mode === 'edit' ? pane.id : `new-${pane.type}`}
         item={editing ?? null}
         reuse={data.reuse}
+        {...(pane.mode === 'new' ? { type: pane.type } : {})}
         onSave={save}
         onCancel={() => {
           setPane({ mode: 'view' });
@@ -305,14 +555,27 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
         <div className="side__brand">
           <Brand />
         </div>
-        <Button
-          variant="primary"
-          icon="plus"
-          className="side__new"
-          onClick={() => startNew('login')}
-        >
-          New item
-        </Button>
+        <div className="side__actions">
+          <Button
+            variant="primary"
+            icon="plus"
+            className="side__new"
+            title="New item (N)"
+            onClick={() => startNew('login')}
+          >
+            New item
+          </Button>
+          <button
+            type="button"
+            className="side__palette"
+            title={`Command palette (${modKey()} K)`}
+            aria-label="Command palette"
+            onClick={() => setPaletteOpen(true)}
+          >
+            <kbd className="pv-kbd">{modKey()}</kbd>
+            <kbd className="pv-kbd">K</kbd>
+          </button>
+        </div>
         <nav className="side__nav">
           <p className="pv-label side__group">Library</p>
           {navItems.map((n) => (
@@ -353,6 +616,8 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
           demo={demo}
           onLock={actions.lock}
           onTheme={actions.changeTheme}
+          needsBackup={!demo && data.counts.all > 0 && backupIsStale(profile.lastBackupAt)}
+          onBackup={() => void actions.exportBackup().then(() => toast('Backup downloaded'))}
         />
       </aside>
 
@@ -508,6 +773,30 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
         onProfile={actions.updateProfile}
         onDeleteVault={actions.deleteVault}
         onExitDemo={actions.exitDemo}
+        onExportBackup={actions.exportBackup}
+        onImport={() => setImportOpen(true)}
+      />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        items={data.active}
+        commands={commands}
+        onOpenItem={(id) => {
+          setFilter({ kind: 'all' });
+          setQuery('');
+          open(id);
+        }}
+        onCopyPassword={(item) => copyField(item, 'password')}
+      />
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        vault={vault}
+        onImported={(count) => {
+          setRevision((r) => r + 1);
+          if (count > 0) setFilter({ kind: 'all' });
+        }}
       />
       <Dialog
         open={purgeTarget !== null}
@@ -567,12 +856,16 @@ function VaultStatus({
   demo,
   onLock,
   onTheme,
+  needsBackup,
+  onBackup,
 }: {
   vault: Vault;
   profile: Profile;
   demo: boolean;
   onLock: () => void;
   onTheme: (theme: ThemeSetting) => void;
+  needsBackup: boolean;
+  onBackup: () => void;
 }) {
   const rings = useRings(vault.header.fingerprint);
   return (
@@ -586,7 +879,23 @@ function VaultStatus({
         <IconButton icon="lock" label="Lock vault" onClick={onLock} />
       </div>
       <div className="status__row">
-        <DataChip mode={demo ? 'local' : profile.storageMode} compact />
+        {needsBackup ? (
+          <button
+            type="button"
+            className="backup-nudge"
+            title={
+              profile.lastBackupAt
+                ? 'Your last backup is over 30 days old. Download a fresh one.'
+                : 'This vault lives only in this browser. Download an encrypted backup so it survives a cleared browser or a lost laptop.'
+            }
+            onClick={onBackup}
+          >
+            <Icon name="download" />
+            Back up
+          </button>
+        ) : (
+          <DataChip mode={demo ? 'local' : profile.storageMode} compact />
+        )}
         <ThemeToggle value={profile.theme} onChange={onTheme} />
       </div>
     </div>

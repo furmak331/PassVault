@@ -4,10 +4,11 @@ A zero-knowledge password manager. You choose where your vault lives: only on
 your machine, on a server you run, or in the cloud. In every mode it's
 encrypted on your device first, so nobody else can read it.
 
-> **Status:** P1 (web vault, local-only). The web vault works end to end on
-> one device: create a vault, unlock it, and manage logins and notes. Sync, the
-> Chrome extension and import/export come next. This is an educational project
-> and has not been independently audited.
+> **Status:** P1 complete (web vault, local-only). The web vault works end to
+> end on one device and installs as an offline app: create or restore a vault,
+> import from other password managers, and keep encrypted backups. The Chrome
+> extension and sync come next. This is an educational project and has not
+> been independently audited.
 
 **Try it:** [furmak331.github.io/PassVault](https://furmak331.github.io/PassVault/).
 Pick "Explore the demo vault" for sample data (password
@@ -79,6 +80,19 @@ single signal color marks what needs attention. The reasoning is in
   after the tab was in the background.
 - **Local-only storage** in IndexedDB. The store only ever receives the vault
   header and encrypted records.
+- **Command palette (⌘K / Ctrl K)** to find any item or run any action, and
+  single-key shortcuts (`/` search, `N` new, `J`/`K` move, `C` copy password,
+  `?` for the full list).
+- **Import** from Chrome, Edge, Brave, Firefox, Bitwarden and 1Password CSV
+  exports, with a preview, duplicate detection and a reminder to delete the
+  plain-text file afterwards.
+- **Encrypted backups** that are the vault itself: download one from Settings,
+  restore it on any device from the welcome screen, or merge it into another
+  vault. A reminder appears when a local-only vault has no recent backup.
+- **Installable and offline.** A build-time service worker caches the exact
+  files of each release, so the app opens with no connection; a new version is
+  offered, never forced. A strict Content Security Policy allows code and data
+  from this origin only.
 
 ## How the crypto works
 

@@ -14,6 +14,8 @@ export interface Profile {
   /** Minutes without activity before the vault locks. 0 means never. */
   autoLockMinutes: number;
   storageMode: StorageMode;
+  /** When an encrypted backup was last downloaded, or null for never. */
+  lastBackupAt: string | null;
 }
 
 export const DEFAULT_PROFILE: Profile = {
@@ -23,7 +25,16 @@ export const DEFAULT_PROFILE: Profile = {
   accent: 'signal',
   autoLockMinutes: 15,
   storageMode: 'local',
+  lastBackupAt: null,
 };
+
+/** A local-only vault without a recent backup is one cleared browser away from gone. */
+export const BACKUP_STALE_DAYS = 30;
+
+export function backupIsStale(lastBackupAt: string | null, now = Date.now()): boolean {
+  if (!lastBackupAt) return true;
+  return now - Date.parse(lastBackupAt) > BACKUP_STALE_DAYS * 86400_000;
+}
 
 export const AUTO_LOCK_CHOICES = [1, 5, 15, 60, 0] as const;
 

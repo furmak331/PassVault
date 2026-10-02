@@ -3,10 +3,12 @@ import {
   generatePassphrase,
   type Fingerprint as VaultFingerprint,
   type Vault,
+  type VaultBackup,
 } from '@passvaultify/core';
 import { Badge, Button, Fingerprint, Icon, TextField } from '@passvaultify/ui';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useRings } from './hooks';
+import { RestoreDialog } from './ImportDialog';
 import { ThemeToggle } from './ThemeToggle';
 import { StrengthReadout, useMasterStrength } from './MasterStrength';
 import {
@@ -38,6 +40,7 @@ export interface OnboardingProps {
   onDemo: () => Promise<void>;
   onDone: (vault: Vault) => void;
   onTheme: (theme: ThemeSetting) => void;
+  onRestore: (backup: VaultBackup, password: string) => Promise<void>;
 }
 
 export function Onboarding({
@@ -47,12 +50,14 @@ export function Onboarding({
   onDemo,
   onDone,
   onTheme,
+  onRestore,
 }: OnboardingProps) {
   const [step, setStep] = useState<Step>('welcome');
   const [created, setCreated] = useState<{ vault: Vault; fingerprint: VaultFingerprint } | null>(
     null,
   );
   const [strength, setStrength] = useState(0);
+  const [restoreOpen, setRestoreOpen] = useState(false);
   const [typed, setTyped] = useState(0);
   const index = NUMBERED.indexOf(step);
   const back = () => setStep(index > 0 ? (NUMBERED[index - 1] as Step) : 'welcome');
@@ -80,7 +85,10 @@ export function Onboarding({
               </span>
             </span>
           ) : (
-            <span />
+            <button type="button" className="text-btn" onClick={() => setRestoreOpen(true)}>
+              <Icon name="upload" />
+              Restore a backup
+            </button>
           )}
           <span className="onb__tools">
             <ThemeToggle value={profile.theme} onChange={onTheme} />
@@ -123,6 +131,7 @@ export function Onboarding({
           )}
         </div>
       </section>
+      <RestoreDialog open={restoreOpen} onOpenChange={setRestoreOpen} onRestore={onRestore} />
     </main>
   );
 }
@@ -132,9 +141,9 @@ export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <span className="brand">
       <svg className="brand__mark" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="10" />
-        <circle cx="12" cy="12" r="5.5" />
-        <path d="M12 2v4" className="brand__index" />
+        <circle cx="12" cy="13.4" r="8.6" />
+        <circle cx="12" cy="13.4" r="3.6" />
+        <path d="M9.3 1.2h5.4L12 4.4z" className="brand__index" />
       </svg>
       {!compact && <span className="brand__name">PassVaultify</span>}
     </span>

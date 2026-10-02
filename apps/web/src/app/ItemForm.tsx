@@ -27,11 +27,13 @@ export interface ItemFormProps {
   reuse: Map<string, VaultItem[]>;
   onSave: (values: ItemValues) => Promise<void>;
   onCancel: () => void;
+  /** Kind of item to start with when creating one. */
+  type?: ItemType;
 }
 
-function initialValues(data: ItemData | undefined): ItemValues {
+function initialValues(data: ItemData | undefined, type: ItemType = 'login'): ItemValues {
   return {
-    type: data?.type ?? 'login',
+    type: data?.type ?? type,
     title: data?.title ?? '',
     username: data?.type === 'login' ? data.username : '',
     password: data?.type === 'login' ? data.password : '',
@@ -55,8 +57,8 @@ const TYPES = [
   { value: 'note', label: 'Secure note' },
 ] as const;
 
-export function ItemForm({ item, reuse, onSave, onCancel }: ItemFormProps) {
-  const [v, setV] = useState(() => initialValues(item?.data));
+export function ItemForm({ item, reuse, onSave, onCancel, type }: ItemFormProps) {
+  const [v, setV] = useState(() => initialValues(item?.data, type));
   const [tagText, setTagText] = useState(() => v.tags.join(', '));
   const [showPassword, setShowPassword] = useState(!item);
   const [generatorOpen, setGeneratorOpen] = useState(false);

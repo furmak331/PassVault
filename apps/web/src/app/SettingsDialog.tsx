@@ -10,10 +10,17 @@ import {
 } from '@passvaultify/ui';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { DeleteVaultDialog } from './DeleteVaultDialog';
-import { useRings } from './hooks';
+import { relativeTime, useRings } from './hooks';
 import { StrengthReadout, useMasterStrength } from './MasterStrength';
+import { promptInstall, useCanInstall } from './pwa';
 import { AccentPicker, THEME_OPTIONS } from './Onboarding';
-import { AUTO_LOCK_CHOICES, autoLockLabel, defaultVaultName, type Profile } from './profile';
+import {
+  AUTO_LOCK_CHOICES,
+  autoLockLabel,
+  backupIsStale,
+  defaultVaultName,
+  type Profile,
+} from './profile';
 
 export interface SettingsDialogProps {
   open: boolean;
@@ -24,6 +31,8 @@ export interface SettingsDialogProps {
   onProfile: (profile: Profile) => void;
   onDeleteVault: () => Promise<void>;
   onExitDemo: () => void;
+  onExportBackup: () => Promise<void>;
+  onImport: () => void;
 }
 
 const AUTO_LOCK_OPTIONS = AUTO_LOCK_CHOICES.map((m) => ({
@@ -45,6 +54,8 @@ export function SettingsDialog(props: SettingsDialogProps) {
   const [changeOpen, setChangeOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const rings = useRings(vault.header.fingerprint);
+  const toast = useToast();
+  const canInstall = useCanInstall();
   const set = (patch: Partial<Profile>) => onProfile({ ...profile, ...patch });
 
   return (
@@ -130,15 +141,69 @@ export function SettingsDialog(props: SettingsDialogProps) {
           </div>
         </Section>
 
-        <Section title="Storage">
+        <Section title="Storage and backups">
           <div className="row-setting">
             <DataChip mode={demo ? 'local' : profile.storageMode} />
           </div>
           <p className="row-setting__hint">
             {demo
               ? 'The demo vault is kept in memory only. Closing the tab erases it.'
-              : "Encrypted in this browser's storage. Clearing this site's data in your browser erases the vault."}
+              : "Encrypted in this browser's storage. Clearing this site's data in your browser erases the vault, so keep a backup somewhere else."}
           </p>
+          <div className="row-setting">
+            <span className="row-setting__label">
+              Encrypted backup
+              <span
+                className="row-setting__hint"
+                data-warn={(!demo && backupIsStale(profile.lastBackupAt)) || undefined}
+              >
+                {profile.lastBackupAt
+                  ? `Last downloaded ${relativeTime(profile.lastBackupAt)}`
+                  : 'Never downloaded. It opens with your master password, nothing else.'}
+              </span>
+            </span>
+            <Button
+              icon="download"
+              onClick={() =>
+                void props.onExportBackup().then(
+                  () => toast('Backup downloaded'),
+                  (err: unknown) => toast(`Couldn't create the backup: ${String(err)}`),
+                )
+              }
+            >
+              Download
+            </Button>
+          </div>
+          <div className="row-setting">
+            <span className="row-setting__label">
+              Import
+              <span className="row-setting__hint">
+                From Chrome, Firefox, Bitwarden or 1Password, or merge a backup.
+              </span>
+            </span>
+            <Button
+              icon="upload"
+              onClick={() => {
+                onOpenChange(false);
+                props.onImport();
+              }}
+            >
+              Import…
+            </Button>
+          </div>
+          {canInstall && (
+            <div className="row-setting">
+              <span className="row-setting__label">
+                Install as an app
+                <span className="row-setting__hint">
+                  Its own window and icon, and it opens without a connection.
+                </span>
+              </span>
+              <Button icon="download" onClick={() => void promptInstall()}>
+                Install
+              </Button>
+            </div>
+          )}
         </Section>
 
         <Section title={demo ? 'Demo' : 'Danger zone'}>
