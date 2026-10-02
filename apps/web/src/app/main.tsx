@@ -5,7 +5,11 @@ import './styles/base.css';
 import './styles/onboarding.css';
 import './styles/lock.css';
 import './styles/vault.css';
+import './styles/tools.css';
 import { App } from './App';
+import { registerPwa } from './pwa';
+
+registerPwa();
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root element');
