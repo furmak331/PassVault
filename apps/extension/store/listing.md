@@ -12,7 +12,7 @@ says where each part goes.
 
 > A zero-knowledge password manager. Fills logins only on the site they belong to.
 
-**Category:** Tools
+**Category:** Privacy & Security (under "Make Chrome Yours"). Not Developer Tools.
 
 **Language:** English
 
@@ -62,11 +62,18 @@ It is an educational project and has not been independently audited.
 
 **Marquee promo tile** (1400 × 560, optional): `promo-marquee-1400x560.png`
 
-**Store icon** (128 × 128): `apps/extension/public/icons/icon-128.png`
+**Store icon** (128 × 128): `store-icon-128.png`. The same file as the icon in
+the package: 96 × 96 artwork with 16 px of transparent padding, and a faint
+light glow so the dark plate stays visible on dark backgrounds.
 
-**Homepage URL:** https://github.com/furmak331/PassVault
+**Official URL:** None. It only lists sites verified in Google Search Console;
+leave it empty.
+
+**Homepage URL:** https://furmak331.github.io/PassVault/
 
 **Support URL:** https://github.com/furmak331/PassVault/issues
+
+**Mature content:** off.
 
 ## Privacy practices tab
 
