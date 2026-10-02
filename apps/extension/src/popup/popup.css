@@ -1,0 +1,280 @@
+/* The toolbar popup: a fixed 360px column, like the extension's own small window. */
+html,
+body {
+  margin: 0;
+}
+.popup-body {
+  width: 360px;
+}
+.pop {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 200px;
+  max-height: 580px;
+  padding: 12px 14px 12px;
+  overflow-y: auto;
+}
+.pop--loading {
+  height: 320px;
+}
+.pop--center {
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 20px 22px;
+}
+.pop__title {
+  font-size: 28px;
+}
+.pop__lede {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--pv-ink-2);
+}
+.pop__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+.pop__bar .brand {
+  margin-right: auto;
+}
+.pop__tools {
+  display: flex;
+  margin-left: auto;
+}
+.pop__subtitle {
+  font-stretch: 115%;
+  font-weight: 720;
+  font-size: 15px;
+}
+
+/* The site this tab is on, with a lamp that's lit on a real web page. */
+.site {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 170px;
+  padding: 4px 9px 4px 8px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--pv-line-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 11.5px var(--pv-mono);
+  color: var(--pv-ink-2);
+}
+.site__lamp {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--pv-ink-3);
+}
+.site__lamp[data-on] {
+  background: var(--pv-ok);
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--pv-ok) 60%, transparent);
+}
+
+/* Lock view */
+.pop--lock {
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding-bottom: 18px;
+}
+.pop--lock .pop__bar {
+  align-self: stretch;
+}
+.pop__dial {
+  min-height: 132px;
+  margin: 4px 0 6px;
+}
+.pop--lock[data-busy] .pop__dial {
+  animation: pop-breathe 1s ease-in-out infinite alternate;
+}
+@keyframes pop-breathe {
+  to {
+    opacity: 0.55;
+  }
+}
+.pop--lock .pv-label {
+  margin: 0;
+}
+.pop__vault {
+  font-size: 26px;
+  overflow-wrap: anywhere;
+}
+.pop__code {
+  margin: 0;
+  color: var(--pv-ink-2);
+}
+.pop__combo {
+  align-self: stretch;
+  margin-top: 12px;
+}
+.pop__error {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--pv-danger);
+}
+
+/* Unlocked */
+.pop__search input {
+  height: 38px;
+}
+.pop__section {
+  margin: 4px 2px -4px;
+}
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 -6px;
+  padding: 0;
+  list-style: none;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 6px;
+  border-radius: var(--pv-radius);
+}
+.row:hover {
+  background: var(--pv-raised);
+}
+.row__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.row__title,
+.row__sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.row__title {
+  font-weight: 640;
+}
+.row__sub {
+  font-size: 12px;
+  color: var(--pv-ink-3);
+}
+.row__actions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.row__actions .pv-btn--icon {
+  width: 28px;
+  min-height: 28px;
+}
+.row__fill {
+  min-height: 28px;
+  margin-left: 4px;
+  padding: 0 11px;
+}
+.pop__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 6px 2px 4px;
+  font-size: 13px;
+  color: var(--pv-ink-2);
+}
+.pop__empty p {
+  margin: 0;
+}
+.pop__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pv-line);
+}
+.pop__hint,
+.pop__message {
+  font-size: 12px;
+  color: var(--pv-ink-3);
+}
+.pop__message {
+  font-weight: 600;
+  color: var(--pv-ok);
+}
+.pop__message[data-tone='warn'] {
+  color: var(--pv-warn);
+}
+
+/* "Save this login?" */
+.save {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--pv-radius);
+  background: var(--pv-acc-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pv-acc) 35%, transparent);
+}
+.save__text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.save__user {
+  display: block;
+  margin-top: 3px;
+  font: 600 12px var(--pv-mono);
+  color: var(--pv-ink-2);
+}
+.save__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* Sub-views */
+.pop__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pop__body > .pv-seg {
+  align-self: flex-start;
+}
+.pop__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.pop__pw {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+.pop__pw .pv-field {
+  flex: 1;
+}
+.pop__pw .pv-btn--icon {
+  width: 40px;
+  min-height: 40px;
+  border-color: var(--pv-line-2);
+}
+.pop__mono {
+  font-family: var(--pv-mono);
+}
+
+/* A 24-character password fits on one line at the popup's width. */
+.pop .pv-secret--lg {
+  padding: 14px;
+  font-size: 17px;
+}

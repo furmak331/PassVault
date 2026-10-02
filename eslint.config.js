@@ -13,4 +13,13 @@ export default tseslint.config(
     plugins: { 'react-hooks': reactHooks },
     rules: { ...reactHooks.configs.recommended.rules },
   },
+  {
+    files: ['**/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    // Browser tests pass functions into pages, where the DOM and chrome.* exist.
+    files: ['**/e2e/**/*.mjs'],
+    languageOptions: { globals: { ...globals.browser, chrome: 'readonly' } },
+  },
 );
