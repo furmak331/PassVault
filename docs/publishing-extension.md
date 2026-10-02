@@ -53,7 +53,7 @@ and the images are next to it in `apps/extension/store/`.
 ### Store listing
 
 - Description, category and language from `listing.md`.
-- Upload the store icon (`apps/extension/public/icons/icon-128.png`), the five
+- Upload the store icon (`apps/extension/store/store-icon-128.png`), the five
   screenshots in order, and the small promo tile. The marquee tile is optional
   and only used if Google features the extension.
 - Homepage and support URLs from `listing.md`.
