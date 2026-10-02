@@ -5,7 +5,8 @@ import { DeleteVaultDialog } from './DeleteVaultDialog';
 import { DEMO_PASSWORD } from './demo';
 import { useRings } from './hooks';
 import { Brand } from './Onboarding';
-import type { Profile } from './profile';
+import type { Profile, ThemeSetting } from './profile';
+import { ThemeToggle } from './ThemeToggle';
 
 export interface LockScreenProps {
   header: VaultHeader;
@@ -17,6 +18,7 @@ export interface LockScreenProps {
   onOpened: (vault: Vault) => void;
   onDeleteVault: () => Promise<void>;
   onExitDemo: () => void;
+  onTheme: (theme: ThemeSetting) => void;
 }
 
 type State = 'idle' | 'working' | 'wrong' | 'open';
@@ -39,6 +41,7 @@ export function LockScreen({
   onOpened,
   onDeleteVault,
   onExitDemo,
+  onTheme,
 }: LockScreenProps) {
   const rings = useRings(header.fingerprint);
   const inputId = useId();
@@ -96,7 +99,10 @@ export function LockScreen({
     <main className="lock" data-state={state}>
       <header className="lock__bar">
         <Brand />
-        <DataChip mode={demo ? 'local' : profile.storageMode} />
+        <span className="lock__tools">
+          <ThemeToggle value={profile.theme} onChange={onTheme} />
+          <DataChip mode={demo ? 'local' : profile.storageMode} compact />
+        </span>
       </header>
 
       <div className="lock__stage">

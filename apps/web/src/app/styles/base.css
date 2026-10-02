@@ -6,6 +6,8 @@ body {
 }
 body {
   min-height: 100dvh;
+  /* Switching theme fades the page instead of flashing it. */
+  transition: background-color 200ms ease;
 }
 .app,
 .app-loading {
@@ -350,6 +352,60 @@ body {
   padding-inline: 4px;
   font-size: 11.5px;
   color: var(--pv-ink-3);
+}
+
+/* ---------- Theme switch ---------- */
+.theme-toggle {
+  display: inline-flex;
+  flex: none;
+  gap: 0;
+  margin: 0;
+  padding: 2px;
+  border: 0;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px var(--pv-line-2);
+}
+.theme-toggle__opt {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  border-radius: 5px;
+  color: var(--pv-ink-3);
+  cursor: pointer;
+  transition:
+    background-color 140ms var(--pv-ease),
+    color 140ms var(--pv-ease);
+}
+.theme-toggle__opt input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.theme-toggle__opt .pv-icon {
+  width: 14px;
+  height: 14px;
+}
+.theme-toggle__opt:hover {
+  color: var(--pv-ink);
+}
+.theme-toggle__opt:has(input:checked) {
+  background: var(--pv-ink);
+  color: var(--pv-bg);
+}
+.theme-toggle__opt:has(input:focus-visible) {
+  outline: 2px solid var(--pv-acc);
+  outline-offset: 1px;
+}
+
+/* Quiet, thin scrollbars that take the theme's colors. */
+.pv-root,
+.pv-root * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--pv-line-2) transparent;
 }
 
 /* ---------- Settings-style rows ---------- */

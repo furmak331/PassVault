@@ -6,7 +6,13 @@ import { createDemoVault, DEMO_PROFILE } from './demo';
 import { useIdleLock, useResolvedTheme } from './hooks';
 import { LockScreen } from './LockScreen';
 import { Onboarding } from './Onboarding';
-import { DEFAULT_PROFILE, type Profile } from './profile';
+import {
+  DEFAULT_PROFILE,
+  rememberedTheme,
+  rememberTheme,
+  type Profile,
+  type ThemeSetting,
+} from './profile';
 import { VaultApp } from './VaultApp';
 
 type Phase =
@@ -24,6 +30,7 @@ interface Session {
 export interface AppActions {
   lock: () => void;
   updateProfile: (profile: Profile) => void;
+  changeTheme: (theme: ThemeSetting) => void;
   deleteVault: () => Promise<void>;
   exitDemo: () => void;
 }
@@ -31,7 +38,10 @@ export interface AppActions {
 export function App() {
   const [idb] = useState(() => new IdbStore());
   const [session, setSession] = useState<Session>({ store: idb, demo: false });
-  const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
+  const [profile, setProfile] = useState<Profile>(() => ({
+    ...DEFAULT_PROFILE,
+    theme: rememberedTheme(),
+  }));
   const [phase, setPhase] = useState<Phase>({ name: 'loading' });
   const theme = useResolvedTheme(profile.theme);
 
@@ -40,7 +50,7 @@ export function App() {
     () =>
       Promise.all([idb.loadHeader(), idb.loadProfile()]).then(([header, saved]) => {
         setSession({ store: idb, demo: false });
-        setProfile(saved ?? DEFAULT_PROFILE);
+        setProfile(saved ?? { ...DEFAULT_PROFILE, theme: rememberedTheme() });
         setPhase(header ? { name: 'locked', header } : { name: 'onboarding' });
       }),
     [idb],
@@ -49,6 +59,9 @@ export function App() {
   useEffect(() => {
     void loadLocal();
   }, [loadLocal]);
+
+  // Keep the theme outside the vault too, so it applies before any vault exists.
+  useEffect(() => rememberTheme(profile.theme), [profile.theme]);
 
   // Dialogs and toasts render in portals on <body>, so the theme lives there too.
   useEffect(() => {
@@ -82,6 +95,12 @@ export function App() {
     [idb, session.demo],
   );
 
+  /** The quick theme switch: saved with the profile once a vault exists. */
+  const changeTheme = (theme: ThemeSetting) => {
+    if (phase.name === 'onboarding') setProfile({ ...profile, theme });
+    else updateProfile({ ...profile, theme });
+  };
+
   const createVault = async (
     draft: Profile,
     password: string,
@@ -95,7 +114,8 @@ export function App() {
   const startDemo = async () => {
     const { vault, store } = await createDemoVault();
     setSession({ store, demo: true });
-    setProfile(DEMO_PROFILE);
+    // The demo brings its own name, but keeps the look the visitor already chose.
+    setProfile({ ...DEMO_PROFILE, theme: profile.theme, accent: profile.accent });
     setPhase({ name: 'unlocked', vault });
   };
 
@@ -120,7 +140,7 @@ export function App() {
     await loadLocal();
   }, [exitDemo, idb, loadLocal, session.demo]);
 
-  const actions: AppActions = { lock, updateProfile, deleteVault, exitDemo };
+  const actions: AppActions = { lock, updateProfile, changeTheme, deleteVault, exitDemo };
 
   return (
     // Keyed by phase so toasts (and their Undo actions) never outlive a lock.
@@ -131,6 +151,7 @@ export function App() {
           <Onboarding
             profile={profile}
             onPreview={setProfile}
+            onTheme={changeTheme}
             onCreate={createVault}
             onDemo={startDemo}
             onDone={(vault) => setPhase({ name: 'unlocked', vault })}
@@ -145,6 +166,7 @@ export function App() {
             onOpened={(vault) => setPhase({ name: 'unlocked', vault })}
             onDeleteVault={deleteVault}
             onExitDemo={exitDemo}
+            onTheme={changeTheme}
           />
         )}
         {phase.name === 'unlocked' && (

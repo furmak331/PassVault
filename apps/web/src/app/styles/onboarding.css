@@ -4,6 +4,20 @@
   grid-template-columns: minmax(360px, 40%) minmax(0, 1fr);
   min-height: 100dvh;
 }
+/*
+ * On wide screens the page itself never scrolls: the panel is fixed and the
+ * form fits the window. On a short window the form side scrolls on its own,
+ * so the panel doesn't drift.
+ */
+@media (min-width: 901px) {
+  .onb {
+    height: 100dvh;
+  }
+  .onb__main {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
 
 /* The panel always uses Graphite tokens (it's a pv-root of its own). */
 .inst {
@@ -126,7 +140,7 @@ body[data-theme='graphite'] .inst {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 26px clamp(24px, 6vw, 104px) 40px;
+  padding: 24px clamp(24px, 6vw, 104px) clamp(20px, 4vh, 40px);
 }
 .onb__bar {
   display: flex;
@@ -153,6 +167,11 @@ body[data-theme='graphite'] .inst {
 .onb__ticks .is-on {
   background: var(--pv-ink);
 }
+.onb__tools {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
 .onb__back {
   display: inline-flex;
   align-items: center;
@@ -174,10 +193,9 @@ body[data-theme='graphite'] .inst {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   width: 100%;
   max-width: 600px;
-  padding-block: 40px;
+  padding-block: clamp(16px, 4vh, 40px);
   animation: onb-in 420ms var(--pv-ease);
 }
 @keyframes onb-in {
@@ -189,16 +207,18 @@ body[data-theme='graphite'] .inst {
 .onb__step-body {
   display: flex;
   flex-direction: column;
+  /* Centered with auto margins, not justify-content, so tall steps never clip. */
+  margin-block: auto;
 }
 .onb__title {
-  font-size: clamp(34px, 4.2vw, 56px);
+  font-size: clamp(32px, min(4.2vw, 6.6vh), 56px);
 }
 .onb__welcome .onb__title {
-  font-size: clamp(40px, 5.4vw, 76px);
+  font-size: clamp(38px, min(5.4vw, 8.4vh), 76px);
 }
 .onb__lede {
   max-width: 46ch;
-  margin: 20px 0 0;
+  margin: clamp(12px, 2.2vh, 20px) 0 0;
   font-size: 16px;
   line-height: 1.55;
   color: var(--pv-ink-2);
@@ -212,29 +232,29 @@ body[data-theme='graphite'] .inst {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 36px;
+  margin-top: clamp(22px, 4vh, 36px);
 }
 .onb__next {
-  margin-top: 36px;
+  margin-top: clamp(22px, 4vh, 36px);
 }
 .onb__fields {
   display: flex;
   flex-direction: column;
   gap: 20px;
   max-width: 460px;
-  margin-top: 34px;
+  margin-top: clamp(20px, 3.6vh, 34px);
 }
 .onb__group {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-top: 30px;
+  margin-top: clamp(18px, 3.2vh, 30px);
 }
 .facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 22px;
-  margin: 64px 0 0;
+  margin: clamp(28px, 6.4vh, 64px) 0 0;
   padding: 0;
   list-style: none;
 }
@@ -255,7 +275,7 @@ body[data-theme='graphite'] .inst {
 
 /* Storage options: a ruled list, not a stack of cards. */
 .options {
-  margin: 32px 0 0;
+  margin: clamp(20px, 3.4vh, 32px) 0 0;
   padding: 0;
   border: 0;
   border-top: 1px solid var(--pv-line-2);
@@ -266,7 +286,7 @@ body[data-theme='graphite'] .inst {
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr);
   gap: 16px;
-  padding: 18px 6px;
+  padding: clamp(12px, 2vh, 18px) 6px;
   border-bottom: 1px solid var(--pv-line);
   cursor: pointer;
   transition: background-color 140ms var(--pv-ease);
@@ -364,8 +384,8 @@ body[data-theme='graphite'] .inst {
       'top top'
       'dial id';
     align-items: center;
-    gap: 16px 18px;
-    padding: max(16px, env(safe-area-inset-top)) 20px 20px;
+    gap: 8px 14px;
+    padding: max(14px, env(safe-area-inset-top)) 20px 12px;
   }
   .inst__top {
     grid-area: top;
@@ -375,7 +395,7 @@ body[data-theme='graphite'] .inst {
   }
   .inst__dial .pv-fp,
   .inst__dial-placeholder {
-    width: 104px;
+    width: 72px;
   }
   .inst__id {
     grid-area: id;
@@ -386,20 +406,43 @@ body[data-theme='graphite'] .inst {
   .inst .spec {
     display: none;
   }
+  /* The placeholder code is decoration; on a phone the space is worth more. */
+  .inst:not([data-sealed]) .inst__id .pv-fp-code {
+    display: none;
+  }
   .onb__main {
-    padding: 18px 20px max(28px, env(safe-area-inset-bottom));
+    padding: 14px 20px max(20px, env(safe-area-inset-bottom));
   }
   .onb__body {
-    justify-content: flex-start;
-    padding-block: 18px 0;
+    padding-block: 14px 0;
+  }
+  .onb__step-body {
+    margin-block: 0;
+  }
+  .onb__welcome .onb__title {
+    font-size: clamp(32px, 9vw, 44px);
+  }
+  .onb__lede {
+    font-size: 15px;
+    line-height: 1.5;
   }
   .facts {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
-    margin-top: 40px;
+    margin-top: 28px;
   }
   .facts li {
-    padding-block: 12px;
+    padding-block: 9px;
+  }
+  .themes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .theme-tile {
+    width: auto;
+  }
+  .theme-tile__art {
+    height: 52px;
   }
   .onb__actions .pv-btn,
   .onb__next .pv-btn {

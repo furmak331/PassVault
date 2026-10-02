@@ -4,7 +4,15 @@ export interface DataChipProps {
   mode: StorageMode;
   /** Server host name for self-hosted mode, or the cloud region. */
   where?: string;
+  /** Short label for tight spaces; the full text stays in the tooltip. */
+  compact?: boolean;
 }
+
+const SHORT: Record<StorageMode, string> = {
+  local: 'Local only',
+  self: 'Self-hosted',
+  cloud: 'Cloud',
+};
 
 export function dataChipText({ mode, where }: DataChipProps): string {
   switch (mode) {
@@ -23,7 +31,7 @@ export function DataChip(props: DataChipProps) {
   return (
     <span className="pv-chip" data-mode={props.mode} title={text}>
       <span className="pv-chip__dot" aria-hidden="true" />
-      <span className="pv-chip__text">{text}</span>
+      <span className="pv-chip__text">{props.compact ? SHORT[props.mode] : text}</span>
     </span>
   );
 }
