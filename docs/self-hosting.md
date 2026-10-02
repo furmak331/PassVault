@@ -39,6 +39,19 @@ Note the `fingerprint`. When a device connects for the first time, it shows the
 server's fingerprint; check it matches before you sign in. If it ever changes
 without you reinstalling the server, something is wrong: don't sign in.
 
+## Connect your devices
+
+- **Web vault:** Settings → Sync → Connect. Enter the server's address, check
+  the fingerprint matches what `https://vault.example.com/v1/server` shows,
+  then create an account from your vault (or sign in to one).
+- **Another browser or computer:** on the welcome screen, choose "Sign in to
+  your server".
+- **Chrome extension:** on its settings page, "Sign in to your server" on first
+  run, or Sync → Connect later.
+
+Your account's password is your vault's master password. The server only gets
+a key derived from it.
+
 ## Close registration
 
 By default anyone who can reach the server can create an account. Once you've

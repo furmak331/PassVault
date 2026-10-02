@@ -8,9 +8,10 @@ encrypted on your device first, so nobody else can read it.
 > one device and installs as an offline app: create or restore a vault, import
 > from other password managers, and keep encrypted backups. The Chrome
 > extension fills logins only on their own site and moves vaults to and from
-> the web app with those backups. The sync server is built and self-hostable;
-> wiring sync into the web vault and extension comes next. This is an
-> educational project and has not been independently audited.
+> the web app with those backups. With a self-hosted sync server, the web
+> vault and the extension stay in step across devices, live in the browser and
+> within minutes in the extension. This is an educational project and has not
+> been independently audited.
 
 **Try it:** [furmak331.github.io/PassVault](https://furmak331.github.io/PassVault/).
 Pick "Explore the demo vault" for sample data (password
@@ -174,6 +175,30 @@ SYNC_SERVER_URL=http://localhost:8080 pnpm --filter @passvaultify/core exec vite
 ```
 
 To run your own server with HTTPS, follow [docs/self-hosting.md](docs/self-hosting.md).
+
+### Sync in the apps
+
+Connect from the web vault (Settings → Sync, or "Your own server" when creating
+a vault) or the extension's settings page. You check the server's fingerprint,
+then create an account from your vault or sign in; a new device signs in from
+the welcome screen. How the clients sync is in
+[ADR 0010](docs/adr/0010-client-sync.md):
+
+- Every record remembers the server revision it's based on, and whether it has
+  unsent changes. Edits made offline go out when the server is back.
+- If two devices change the same item, both versions are kept: the other one is
+  saved beside it, marked "(conflict)". An edit beats a deletion.
+- The web vault listens for changes live. The extension syncs on unlock, when
+  its popup opens, after each change and every five minutes.
+- Signing a device out, changing the master password (other devices are asked
+  to sign in again) and deleting the account all work from the web vault.
+
+End-to-end tests run both apps against a real server:
+
+```bash
+SYNC_SERVER_URL=http://localhost:8080 node apps/web/e2e/sync.mjs        # needs the web preview on :4173
+SYNC_SERVER_URL=http://localhost:8080 node apps/extension/e2e/sync.mjs  # needs build:e2e
+```
 
 ## How the crypto works
 
