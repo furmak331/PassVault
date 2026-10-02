@@ -29,6 +29,9 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: pnpm spec:lint
+      # The client's API types are generated from spec/openapi.yaml.
+      - run: pnpm --filter @passvaultify/core api:types
+      - run: git diff --exit-code packages/core/src/sync/openapi.ts
 
   extension:
     name: Chrome extension (end to end, package)
@@ -55,6 +58,54 @@ jobs:
           name: passvaultify-extension-for-store
           path: apps/extension/dist/
           if-no-files-found: error
+
+  server:
+    name: Sync server (SQLite, PostgreSQL, interop, image)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: passvaultify
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: passvaultify_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U passvaultify"
+          --health-interval 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      # Runs every API test twice: against SQLite and against PostgreSQL.
+      - run: ./mvnw -B verify
+        working-directory: apps/server
+        env:
+          DATABASE_URL: jdbc:postgresql://localhost:5432/passvaultify_test
+          DATABASE_USER: passvaultify
+          DATABASE_PASSWORD: test
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The TypeScript client against the real server, every response checked
+      # against spec/openapi.yaml.
+      - name: Interop test
+        run: |
+          PASSVAULTIFY_DATA_DIR="$RUNNER_TEMP/pv" PORT=8080 \
+            java -jar apps/server/target/passvaultify-server.jar > "$RUNNER_TEMP/server.log" 2>&1 &
+          for i in $(seq 1 60); do curl -sf localhost:8080/health && break; sleep 1; done
+          SYNC_SERVER_URL=http://localhost:8080 pnpm --filter @passvaultify/core exec vitest run test/interop.test.ts
+      - if: failure()
+        run: cat "$RUNNER_TEMP/server.log"
+      - run: docker build -t passvaultify-server apps/server
 
   vectors:
     name: Crypto test vectors are reproducible

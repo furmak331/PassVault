@@ -11,7 +11,9 @@ info:
     vault fingerprint, item ciphertext (`pvf1` envelopes, see spec/crypto.md)
     and an Argon2id hash of each account's auth key.
 
-    Draft for P4. Clients are generated from this file, so change it first.
+    Implemented by apps/server. The TypeScript client's types are generated
+    from this file, and an interop test checks every server response against
+    it, so change it first.
   license:
     name: UNLICENSED
     identifier: UNLICENSED
@@ -106,6 +108,8 @@ paths:
                 properties:
                   kdf:
                     $ref: '#/components/schemas/KdfParams'
+        '400':
+          $ref: '#/components/responses/Problem'
         '429':
           $ref: '#/components/responses/RateLimited'
 
@@ -143,8 +147,48 @@ paths:
                   accountId:
                     type: string
                     format: uuid
+        '400':
+          $ref: '#/components/responses/Problem'
+        '403':
+          description: The server isn't accepting new accounts.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         '409':
           $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/accounts/me:
+    delete:
+      tags: [auth]
+      operationId: deleteAccount
+      summary: Delete the account
+      description: Removes the account, its devices and every item. Needs the auth key, so a stolen session token alone can't do it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [authKey]
+              properties:
+                authKey:
+                  $ref: '#/components/schemas/Base64Url'
+      responses:
+        '204':
+          description: Deleted.
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          description: The auth key is wrong.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         '429':
           $ref: '#/components/responses/RateLimited'
 
@@ -182,6 +226,8 @@ paths:
                     $ref: '#/components/schemas/Tokens'
                   header:
                     $ref: '#/components/schemas/VaultHeader'
+        '400':
+          $ref: '#/components/responses/Problem'
         '401':
           $ref: '#/components/responses/Problem'
         '429':
@@ -213,6 +259,8 @@ paths:
                 $ref: '#/components/schemas/Tokens'
         '401':
           $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /v1/auth/logout:
     post:
@@ -230,7 +278,7 @@ paths:
       tags: [auth]
       operationId: updateVaultHeader
       summary: Store a new header after a master password change
-      description: The vault key is re-wrapped on the client. Items are not re-encrypted.
+      description: The vault key is re-wrapped on the client. Items are not re-encrypted. The fingerprint must not change, since it's the same vault key.
       requestBody:
         required: true
         content:
@@ -248,8 +296,18 @@ paths:
       responses:
         '204':
           description: Header updated. Other devices must sign in again.
+        '400':
+          $ref: '#/components/responses/Problem'
         '401':
           $ref: '#/components/responses/Problem'
+        '403':
+          description: currentAuthKey is wrong.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /v1/sync:
     get:
@@ -260,7 +318,11 @@ paths:
         - name: since
           in: query
           required: false
-          description: Last vault revision the client has. Omit for a full sync.
+          description: |
+            Last vault revision the client has. Omit for a full sync. A value
+            ahead of the server's revision (the server was restored from an
+            older backup) gets a full sync, and the lower revision in the
+            response tells the client to reconcile.
           schema:
             type: integer
             format: int64
@@ -282,6 +344,8 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/ItemRecord'
+        '400':
+          $ref: '#/components/responses/Problem'
         '401':
           $ref: '#/components/responses/Problem'
 
@@ -311,6 +375,20 @@ paths:
                 $ref: '#/components/schemas/ItemRecord'
         '401':
           $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '403':
+          description: The vault has reached its item limit.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '413':
+          description: The encrypted item is larger than the server allows.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         '409':
           description: The item changed on another device.
           content:
@@ -327,7 +405,17 @@ paths:
       tags: [sync]
       operationId: streamEvents
       summary: Change notifications (Server-Sent Events)
-      description: Sends `vault-changed` with the new revision whenever another device writes. Carries no item data.
+      description: |
+        Events carry no item data:
+
+        - `vault-changed`, data `{"revision": n}`: sent on connect with the
+          current revision, then after every write. Sync from your last revision.
+        - `session-ended`: this device was signed out (remotely, by a password
+          change, or by refresh-token reuse). Lock and sign in again.
+
+        A comment line is sent every 25 seconds to keep proxies from closing
+        the stream. Browsers' EventSource can't send an Authorization header,
+        so clients read the stream with fetch.
       responses:
         '200':
           description: An event stream.
@@ -370,6 +458,8 @@ paths:
       responses:
         '204':
           description: The device's session was revoked.
+        '400':
+          $ref: '#/components/responses/Problem'
         '401':
           $ref: '#/components/responses/Problem'
         '404':
@@ -380,8 +470,11 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
-      description: Short-lived access token from /v1/auth/login or /v1/auth/refresh.
+      bearerFormat: opaque
+      description: |
+        Short-lived access token from /v1/auth/login or /v1/auth/refresh. Tokens
+        are opaque and checked against the session on every request, so signing
+        a device out takes effect immediately.
 
   parameters:
     ItemId:

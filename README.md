@@ -8,8 +8,9 @@ encrypted on your device first, so nobody else can read it.
 > one device and installs as an offline app: create or restore a vault, import
 > from other password managers, and keep encrypted backups. The Chrome
 > extension fills logins only on their own site and moves vaults to and from
-> the web app with those backups. Sync comes next. This is an educational
-> project and has not been independently audited.
+> the web app with those backups. The sync server is built and self-hostable;
+> wiring sync into the web vault and extension comes next. This is an
+> educational project and has not been independently audited.
 
 **Try it:** [furmak331.github.io/PassVault](https://furmak331.github.io/PassVault/).
 Pick "Explore the demo vault" for sample data (password
@@ -22,14 +23,15 @@ The design system lives at [`specimen.html`](https://furmak331.github.io/PassVau
 apps/
   web/         React + Vite web vault, plus the design-system specimen
   extension/   Chrome extension (Manifest V3): popup, settings page, autofill
+  server/      Sync server: Java 21, Spring Boot 4, SQLite or PostgreSQL
   cli/         The original Java CLI (becomes a pvf1 client in P5)
 packages/
-  core/        Crypto (pvf1), vault model, generator, strength. Web Crypto only
+  core/        Crypto (pvf1), vault model, sync client, generator. Web Crypto only
   ui/          Design tokens, styles and React components
 spec/
   crypto.md    The crypto format, the source of truth for every client
   vectors/     Test vectors from an independent implementation
-  openapi.yaml The sync API contract (implemented in P4)
+  openapi.yaml The sync API contract, implemented by apps/server
 docs/adr/      Architecture decision records
 snap/          Snap packaging for the CLI
 ```
@@ -134,6 +136,44 @@ Publishing to the Chrome Web Store is covered step by step in
 and images are in [`apps/extension/store`](apps/extension/store), and the
 privacy policy is at
 [furmak331.github.io/PassVault/privacy.html](https://furmak331.github.io/PassVault/privacy.html).
+
+## The sync server
+
+`apps/server` keeps a vault in step across devices without being able to read
+it: it stores the vault header, item ciphertext and an Argon2id hash of each
+account's auth key. The design is in [ADR 0009](docs/adr/0009-sync-server.md),
+the API in [spec/openapi.yaml](spec/openapi.yaml).
+
+- **Sign-in without the password.** Clients derive an auth key from the master
+  password and send only that. Sessions use opaque, hashed tokens that are
+  checked on every request, so signing a device out is immediate. Refresh
+  tokens rotate, and a reused one ends the session.
+- **Sync by revision.** Each write takes the vault's next revision; devices ask
+  for changes since the last one they saw, deletions included. Writes carry the
+  revision they were based on, and a stale one gets the newer copy back instead
+  of overwriting it.
+- **Live updates** over Server-Sent Events: a changed revision number, never
+  item data.
+- **Runs anywhere.** One SQLite file for a household, or PostgreSQL. Rate
+  limits on sign-in, sign-up and refresh; fake KDF settings for unknown emails
+  so accounts can't be enumerated.
+
+```bash
+cd apps/server
+./mvnw verify                       # API tests on SQLite (and PostgreSQL if DATABASE_URL is set)
+./mvnw spring-boot:run              # http://localhost:8080, data in ./data
+```
+
+The TypeScript client lives in `packages/core` (`SyncClient`). Its types are
+generated from the spec (`pnpm --filter @passvaultify/core api:types`), and an
+interop test runs it against the real server, checking every response against
+the spec:
+
+```bash
+SYNC_SERVER_URL=http://localhost:8080 pnpm --filter @passvaultify/core exec vitest run test/interop.test.ts
+```
+
+To run your own server with HTTPS, follow [docs/self-hosting.md](docs/self-hosting.md).
 
 ## How the crypto works
 
