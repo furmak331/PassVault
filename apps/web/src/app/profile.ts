@@ -41,6 +41,31 @@ export function sanitizeProfile(saved: Partial<Profile>): Profile {
   return profile;
 }
 
+const THEME_KEY = 'passvaultify.theme';
+
+/**
+ * The theme is also remembered outside the vault, so the choice made on the
+ * welcome screen survives a reload before any vault exists. Storage can be
+ * unavailable (private windows, blocked site data), so failures are ignored.
+ */
+export function rememberTheme(theme: ThemeSetting): void {
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch {
+    // Not fatal: the theme just won't carry over a reload.
+  }
+}
+
+export function rememberedTheme(): ThemeSetting {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'system' || saved === 'graphite' || saved === 'porcelain') return saved;
+  } catch {
+    // Fall through to the default.
+  }
+  return DEFAULT_PROFILE.theme;
+}
+
 export function defaultVaultName(name: string): string {
   const n = name.trim();
   return n ? `${n}'s Vault` : 'My Vault';

@@ -92,6 +92,19 @@ const paths = {
   list: <path d="M4 6h16M4 12h16M4 18h10" />,
   back: <path d="M15 5l-7 7 7 7" />,
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4" />
+    </>
+  ),
+  moon: <path d="M19.5 14.6A8 8 0 1 1 9.4 4.5a6.4 6.4 0 0 0 10.1 10.1z" />,
+  contrast: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor" />
+    </>
+  ),
   type: <path d="M4 7V5h16v2M12 5v14M9 19h6" />,
   history: (
     <>

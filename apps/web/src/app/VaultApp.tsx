@@ -28,8 +28,9 @@ import {
   type Filter,
 } from './model';
 import { Brand } from './Onboarding';
-import type { Profile } from './profile';
+import type { Profile, ThemeSetting } from './profile';
 import { SettingsDialog } from './SettingsDialog';
+import { ThemeToggle } from './ThemeToggle';
 
 type Pane = { mode: 'view' } | { mode: 'edit'; id: string } | { mode: 'new'; type: ItemType };
 
@@ -63,7 +64,9 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const typing = target?.closest('input, textarea, [contenteditable="true"]');
-      if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      // Not while a dialog is open: search sits behind it.
+      const modal = document.querySelector('[role="dialog"]');
+      if (e.key === '/' && !typing && !modal && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         searchRef.current?.focus();
       }
@@ -344,13 +347,20 @@ export function VaultApp({ vault, profile, demo, actions }: VaultAppProps) {
           <NavButton icon="refresh" label="Generator" onClick={() => setGeneratorOpen(true)} />
           <NavButton icon="settings" label="Settings" onClick={() => setSettingsOpen(true)} />
         </nav>
-        <VaultStatus vault={vault} profile={profile} demo={demo} onLock={actions.lock} />
+        <VaultStatus
+          vault={vault}
+          profile={profile}
+          demo={demo}
+          onLock={actions.lock}
+          onTheme={actions.changeTheme}
+        />
       </aside>
 
       <section className="list-pane" aria-label={filterLabel(filter)}>
         <div className="list-head">
           <div className="list-head__top only-narrow">
             <Brand />
+            <ThemeToggle value={profile.theme} onChange={actions.changeTheme} />
           </div>
           <div className="list-head__title">
             <h1 className="pv-display">{filterLabel(filter)}</h1>
@@ -556,11 +566,13 @@ function VaultStatus({
   profile,
   demo,
   onLock,
+  onTheme,
 }: {
   vault: Vault;
   profile: Profile;
   demo: boolean;
   onLock: () => void;
+  onTheme: (theme: ThemeSetting) => void;
 }) {
   const rings = useRings(vault.header.fingerprint);
   return (
@@ -573,7 +585,10 @@ function VaultStatus({
         </div>
         <IconButton icon="lock" label="Lock vault" onClick={onLock} />
       </div>
-      <DataChip mode={demo ? 'local' : profile.storageMode} />
+      <div className="status__row">
+        <DataChip mode={demo ? 'local' : profile.storageMode} compact />
+        <ThemeToggle value={profile.theme} onChange={onTheme} />
+      </div>
     </div>
   );
 }

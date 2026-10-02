@@ -7,6 +7,7 @@ import {
 import { Badge, Button, Fingerprint, Icon, TextField } from '@passvaultify/ui';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useRings } from './hooks';
+import { ThemeToggle } from './ThemeToggle';
 import { StrengthReadout, useMasterStrength } from './MasterStrength';
 import {
   ACCENTS,
@@ -36,9 +37,17 @@ export interface OnboardingProps {
   ) => Promise<{ vault: Vault; fingerprint: VaultFingerprint }>;
   onDemo: () => Promise<void>;
   onDone: (vault: Vault) => void;
+  onTheme: (theme: ThemeSetting) => void;
 }
 
-export function Onboarding({ profile, onPreview, onCreate, onDemo, onDone }: OnboardingProps) {
+export function Onboarding({
+  profile,
+  onPreview,
+  onCreate,
+  onDemo,
+  onDone,
+  onTheme,
+}: OnboardingProps) {
   const [step, setStep] = useState<Step>('welcome');
   const [created, setCreated] = useState<{ vault: Vault; fingerprint: VaultFingerprint } | null>(
     null,
@@ -73,12 +82,15 @@ export function Onboarding({ profile, onPreview, onCreate, onDemo, onDone }: Onb
           ) : (
             <span />
           )}
-          {index >= 0 && (
-            <button type="button" className="onb__back" onClick={back}>
-              <Icon name="back" />
-              Back
-            </button>
-          )}
+          <span className="onb__tools">
+            <ThemeToggle value={profile.theme} onChange={onTheme} />
+            {index >= 0 && (
+              <button type="button" className="onb__back" onClick={back}>
+                <Icon name="back" />
+                Back
+              </button>
+            )}
+          </span>
         </header>
         <div className="onb__body" key={step}>
           {step === 'welcome' && <Welcome onCreate={() => setStep('you')} onDemo={onDemo} />}
@@ -164,6 +176,7 @@ function Instrument({
       className="inst pv-root"
       data-theme="graphite"
       data-accent={profile.accent}
+      data-sealed={sealed || undefined}
       aria-label="Vault preview"
     >
       <div className="inst__top">
