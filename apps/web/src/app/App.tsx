@@ -141,10 +141,8 @@ export function App() {
             header={phase.header}
             profile={profile}
             demo={session.demo}
-            onUnlock={async (password) => {
-              const vault = await Vault.unlock(session.store, password);
-              setPhase({ name: 'unlocked', vault });
-            }}
+            unlock={(password) => Vault.unlock(session.store, password)}
+            onOpened={(vault) => setPhase({ name: 'unlocked', vault })}
             onDeleteVault={deleteVault}
             onExitDemo={exitDemo}
           />

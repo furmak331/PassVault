@@ -1,0 +1,375 @@
+/* PassVaultify web vault: shared layout pieces. Components live in @passvaultify/ui. */
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+body {
+  min-height: 100dvh;
+}
+.app,
+.app-loading {
+  min-height: 100dvh;
+}
+
+/* ---------- Brand ---------- */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-stretch: 122%;
+  font-weight: 780;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: var(--pv-ink);
+}
+.brand__mark {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+.brand__index {
+  stroke: var(--pv-acc);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+
+/* The full stop on display titles carries the signal color: the one flourish. */
+.dot {
+  color: var(--pv-acc);
+}
+
+/* ---------- Text actions ---------- */
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--pv-ink) !important;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--pv-acc);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+.link:hover {
+  color: var(--pv-acc-text) !important;
+}
+.link--danger {
+  color: var(--pv-danger) !important;
+  text-decoration-color: color-mix(in srgb, var(--pv-danger) 50%, transparent);
+}
+.text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border: 0;
+  border-radius: var(--pv-radius-sm);
+  background: none;
+  color: var(--pv-ink-2) !important;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.text-btn:hover {
+  color: var(--pv-ink) !important;
+  background: var(--pv-raised);
+}
+.text-btn .pv-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---------- Layout helpers ---------- */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+.form-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 2px solid var(--pv-danger);
+  background: color-mix(in srgb, var(--pv-danger) 8%, transparent);
+  color: var(--pv-danger);
+  font-size: 13px;
+}
+.plain-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  font-size: 13.5px;
+  color: var(--pv-ink-2);
+}
+.plain-list li {
+  padding: 9px 0 9px 18px;
+  border-top: 1px solid var(--pv-line);
+  position: relative;
+}
+.plain-list li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 16px;
+  width: 6px;
+  height: 1.5px;
+  background: var(--pv-acc);
+}
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: pv-spin 700ms linear infinite;
+}
+@keyframes pv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- Checkbox ---------- */
+.check {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  font-size: 13.5px;
+  color: var(--pv-ink-2);
+  cursor: pointer;
+}
+.check input {
+  position: absolute;
+  opacity: 0;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+.check__box {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 1px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1.5px var(--pv-line-2);
+  color: transparent;
+  transition:
+    background-color 140ms var(--pv-ease),
+    box-shadow 140ms var(--pv-ease);
+}
+.check__box .pv-icon {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.6;
+}
+.check input:checked + .check__box {
+  background: var(--pv-acc);
+  box-shadow: none;
+  color: var(--pv-acc-ink);
+}
+.check input:focus-visible + .check__box {
+  outline: 2px solid var(--pv-acc);
+  outline-offset: 2px;
+}
+.check strong {
+  color: var(--pv-ink);
+  font-weight: 650;
+}
+
+/* ---------- Strength readout ---------- */
+.strength {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.strength__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: 12.5px;
+}
+.strength__label {
+  font-size: 10.5px;
+  font-stretch: 118%;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--pv-ink-3);
+}
+.strength__label[data-tone='danger'] {
+  color: var(--pv-danger);
+}
+.strength__label[data-tone='warn'] {
+  color: var(--pv-warn);
+}
+.strength__label[data-tone='ok'] {
+  color: var(--pv-ok);
+}
+.strength__time {
+  color: var(--pv-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.strength__tip {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--pv-ink-2);
+}
+
+/* ---------- Pickers ---------- */
+.swatches,
+.themes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.swatch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 11px 6px 7px;
+  border-radius: var(--pv-radius);
+  box-shadow: inset 0 0 0 1px var(--pv-line-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pv-ink-2);
+  cursor: pointer;
+}
+.swatch input,
+.theme-tile input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.swatch__chip {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--sw);
+}
+.pv-root[data-theme='graphite'] [data-accent-swatch='mono'] .swatch__chip {
+  background: #efece4;
+}
+.swatch:has(input:checked) {
+  box-shadow: inset 0 0 0 1.5px var(--pv-ink);
+  color: var(--pv-ink);
+}
+.swatch:has(input:focus-visible),
+.theme-tile:has(input:focus-visible) {
+  outline: 2px solid var(--pv-acc);
+  outline-offset: 2px;
+}
+.theme-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 132px;
+  padding: 6px 6px 9px;
+  border-radius: var(--pv-radius-lg);
+  box-shadow: inset 0 0 0 1px var(--pv-line-2);
+  cursor: pointer;
+}
+.theme-tile:has(input:checked) {
+  box-shadow: inset 0 0 0 1.5px var(--pv-ink);
+}
+.theme-tile__art {
+  --t-bg: #0e0e0c;
+  --t-side: #1d1d1a;
+  --t-row: #3a3934;
+  display: flex;
+  height: 70px;
+  margin-bottom: 6px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--t-bg);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08);
+}
+[data-theme-preview='porcelain'] .theme-tile__art {
+  --t-bg: #f1eee6;
+  --t-side: #e7e3d8;
+  --t-row: #c6c0b2;
+}
+[data-theme-preview='system'] .theme-tile__art {
+  background: linear-gradient(115deg, #f1eee6 50%, #0e0e0c 50%);
+}
+[data-theme-preview='system'] .theme-tile__side {
+  background: #e7e3d8;
+}
+.theme-tile__side {
+  width: 30%;
+  background: var(--t-side);
+}
+.theme-tile__rows {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 10px;
+}
+.theme-tile__rows span {
+  height: 5px;
+  border-radius: 2px;
+  background: var(--t-row);
+}
+.theme-tile__rows span:first-child {
+  width: 46%;
+  background: var(--pv-acc);
+}
+.theme-tile__rows span:nth-child(3) {
+  width: 70%;
+}
+.theme-tile__label {
+  padding-inline: 4px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.theme-tile__note {
+  padding-inline: 4px;
+  font-size: 11.5px;
+  color: var(--pv-ink-3);
+}
+
+/* ---------- Settings-style rows ---------- */
+.row-setting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+.row-setting__label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13.5px;
+  font-weight: 620;
+}
+.row-setting__hint {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--pv-ink-3);
+}

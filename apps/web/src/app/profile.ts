@@ -1,5 +1,5 @@
 export type ThemeSetting = 'system' | 'graphite' | 'porcelain';
-export type Accent = 'cobalt' | 'jade' | 'amber' | 'rose';
+export type Accent = 'signal' | 'cobalt' | 'jade' | 'mono';
 export type StorageMode = 'local' | 'self' | 'cloud';
 
 /**
@@ -20,7 +20,7 @@ export const DEFAULT_PROFILE: Profile = {
   name: '',
   vaultName: 'My Vault',
   theme: 'system',
-  accent: 'cobalt',
+  accent: 'signal',
   autoLockMinutes: 15,
   storageMode: 'local',
 };
@@ -28,11 +28,18 @@ export const DEFAULT_PROFILE: Profile = {
 export const AUTO_LOCK_CHOICES = [1, 5, 15, 60, 0] as const;
 
 export const ACCENTS: { value: Accent; label: string; swatch: string }[] = [
-  { value: 'cobalt', label: 'Cobalt', swatch: '#6f8bff' },
-  { value: 'jade', label: 'Jade', swatch: '#2fb38a' },
-  { value: 'amber', label: 'Amber', swatch: '#e0a43a' },
-  { value: 'rose', label: 'Rose', swatch: '#e86a8a' },
+  { value: 'signal', label: 'Signal orange', swatch: '#ec4a0f' },
+  { value: 'cobalt', label: 'Cobalt', swatch: '#2f55e8' },
+  { value: 'jade', label: 'Jade', swatch: '#0b7f58' },
+  { value: 'mono', label: 'Monochrome', swatch: '#151513' },
 ];
+
+/** Fill in defaults and drop values from older versions (e.g. a retired accent). */
+export function sanitizeProfile(saved: Partial<Profile>): Profile {
+  const profile = { ...DEFAULT_PROFILE, ...saved };
+  if (!ACCENTS.some((a) => a.value === profile.accent)) profile.accent = DEFAULT_PROFILE.accent;
+  return profile;
+}
 
 export function defaultVaultName(name: string): string {
   const n = name.trim();
