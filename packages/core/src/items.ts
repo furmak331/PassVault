@@ -112,3 +112,46 @@ export function hostOf(url: string): string | null {
     return null;
   }
 }
+
+const isString = (v: unknown): v is string => typeof v === 'string';
+const isIsoDate = (v: unknown): v is string => isString(v) && !Number.isNaN(Date.parse(v));
+
+/**
+ * Rebuild an item that arrived from outside this vault (a backup, later a
+ * sync peer) field by field, so only known fields with the right types get in.
+ * Returns null when it isn't an item at all.
+ */
+export function sanitizeItem(input: unknown, now: string): ItemData | null {
+  if (typeof input !== 'object' || input === null) return null;
+  const v = input as Record<string, unknown>;
+  if ((v.type !== 'login' && v.type !== 'note') || !isString(v.title)) return null;
+  const strings = (x: unknown) => (Array.isArray(x) ? x.filter(isString) : []);
+  const base = {
+    title: v.title,
+    notes: isString(v.notes) ? v.notes : '',
+    tags: strings(v.tags),
+    favorite: v.favorite === true,
+  };
+  const item = normalizeItem(
+    v.type === 'note'
+      ? { type: 'note', ...base }
+      : {
+          type: 'login',
+          ...base,
+          username: isString(v.username) ? v.username : '',
+          password: isString(v.password) ? v.password : '',
+          urls: strings(v.urls),
+        },
+    isIsoDate(v.createdAt) ? v.createdAt : now,
+  );
+  if (item.type === 'login' && Array.isArray(v.passwordHistory)) {
+    item.passwordHistory = v.passwordHistory
+      .filter(
+        (h): h is PasswordChange =>
+          typeof h === 'object' && h !== null && isString(h.password) && isIsoDate(h.changedAt),
+      )
+      .map((h) => ({ password: h.password, changedAt: h.changedAt }))
+      .slice(0, MAX_PASSWORD_HISTORY);
+  }
+  return item;
+}

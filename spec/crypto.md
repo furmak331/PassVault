@@ -149,6 +149,42 @@ extension storage, so it can't draw the user's fingerprint.
 
 No item is re-encrypted.
 
+## Backup file
+
+A backup is the vault exactly as it is stored, wrapped in JSON. Nothing is
+re-encrypted, so a backup is exactly as strong as the vault: it opens with the
+master password that was current when it was made.
+
+```json
+{
+  "format": "passvaultify-backup",
+  "version": 1,
+  "exportedAt": "2026-10-02T12:00:00.000Z",
+  "vaultName": "Home",
+  "header": {
+    "format": "pvf1",
+    "kdf": { "...": "..." },
+    "wrappedVaultKey": "pvf1....",
+    "fingerprint": "7F3A 91C2 0E5B"
+  },
+  "records": [
+    { "id": "...", "revision": 3, "updatedAt": "...", "deleted": false, "data": "pvf1...." }
+  ]
+}
+```
+
+- `vaultName` is optional and in plaintext, so the restore screen can say what
+  it's restoring. Tombstones are left out.
+- Readers reject the file unless every field is well formed. Iterations must be
+  between 1,000 and 10,000,000: a backup is untrusted input, and a huge count
+  would freeze the reader while "unlocking".
+- Readers must unwrap the vault key and decrypt **every** record before writing
+  anything. A wrong password or one altered record (AES-GCM rejects it) means
+  nothing is restored.
+- Restoring as a new vault keeps record IDs. Merging into an existing vault
+  decrypts the items and re-encrypts them under the destination's vault key
+  with new IDs, after rebuilding each item field by field.
+
 ## What this format does not cover yet
 
 - Argon2id KDF (planned; `alg: "argon2id"` with `memory`, `iterations`,

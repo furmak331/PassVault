@@ -8,7 +8,14 @@ import {
   type Fingerprint,
   type VaultHeader,
 } from './crypto';
-import { applyPatch, normalizeItem, type ItemData, type ItemPatch, type NewItem } from './items';
+import {
+  applyPatch,
+  normalizeItem,
+  sanitizeItem,
+  type ItemData,
+  type ItemPatch,
+  type NewItem,
+} from './items';
 import { randomId } from './random';
 import type { ItemRecord, VaultStore } from './store';
 
@@ -61,6 +68,8 @@ export class Vault {
     options: VaultOptions & CreateVaultOptions = {},
   ): Promise<{ vault: Vault; fingerprint: Fingerprint }> {
     if (await store.loadHeader()) throw new Error('A vault already exists in this store');
+    // Without a header nothing here is readable; clear leftovers (an interrupted restore).
+    await store.clear();
     const created = await createVault(password, options);
     await store.saveHeader(created.header);
     return {
@@ -130,6 +139,17 @@ export class Vault {
 
   async add(input: NewItem): Promise<VaultItem> {
     return this.write(randomId(), normalizeItem(input, this.timestamp()));
+  }
+
+  /**
+   * Add an item that came from outside this vault (a backup), keeping its
+   * creation date, favorite and password history, under a fresh ID. Unknown or
+   * malformed fields are dropped.
+   */
+  async importItem(data: unknown): Promise<VaultItem> {
+    const item = sanitizeItem(data, this.timestamp());
+    if (!item) throw new Error('Not a vault item');
+    return this.write(randomId(), item);
   }
 
   async update(id: string, patch: ItemPatch): Promise<VaultItem> {

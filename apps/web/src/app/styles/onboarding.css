@@ -429,10 +429,10 @@ body[data-theme='graphite'] .inst {
   .facts {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
-    margin-top: 28px;
+    margin-top: 20px;
   }
   .facts li {
-    padding-block: 9px;
+    padding-block: 7px;
   }
   .themes {
     display: grid;

@@ -1,7 +1,18 @@
-import { Vault, type Fingerprint, type VaultHeader, type VaultStore } from '@passvaultify/core';
-import { ToastProvider } from '@passvaultify/ui';
+import {
+  createBackup,
+  openBackup,
+  restoreBackup,
+  serializeBackup,
+  Vault,
+  type Fingerprint,
+  type VaultBackup,
+  type VaultHeader,
+  type VaultStore,
+} from '@passvaultify/core';
+import { ToastProvider, useToast } from '@passvaultify/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { IdbStore } from './db';
+import { backupFilename, downloadText } from './files';
 import { createDemoVault, DEMO_PROFILE } from './demo';
 import { useIdleLock, useResolvedTheme } from './hooks';
 import { LockScreen } from './LockScreen';
@@ -13,6 +24,7 @@ import {
   type Profile,
   type ThemeSetting,
 } from './profile';
+import { applyUpdate, useUpdateReady } from './pwa';
 import { VaultApp } from './VaultApp';
 
 type Phase =
@@ -31,6 +43,8 @@ export interface AppActions {
   lock: () => void;
   updateProfile: (profile: Profile) => void;
   changeTheme: (theme: ThemeSetting) => void;
+  /** Download an encrypted backup of the vault on this device. */
+  exportBackup: () => Promise<void>;
   deleteVault: () => Promise<void>;
   exitDemo: () => void;
 }
@@ -62,6 +76,12 @@ export function App() {
 
   // Keep the theme outside the vault too, so it applies before any vault exists.
   useEffect(() => rememberTheme(profile.theme), [profile.theme]);
+
+  // The browser's own chrome (mobile address bar, installed app title bar) matches.
+  useEffect(() => {
+    const color = theme === 'porcelain' ? '#f1eee6' : '#0e0e0c';
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', color);
+  }, [theme]);
 
   // Dialogs and toasts render in portals on <body>, so the theme lives there too.
   useEffect(() => {
@@ -111,6 +131,28 @@ export function App() {
     return created;
   };
 
+  const exportBackup = async () => {
+    const backup = await createBackup(session.store, { vaultName: profile.vaultName });
+    downloadText(backupFilename(), serializeBackup(backup));
+    if (!session.demo) updateProfile({ ...profile, lastBackupAt: backup.exportedAt });
+  };
+
+  /** Welcome screen: bring a vault back from a backup file, then open it. */
+  const restoreVault = async (backup: VaultBackup, password: string) => {
+    // Proves the password and every item before anything is written.
+    await openBackup(backup, password);
+    await restoreBackup(idb, backup);
+    const vault = await Vault.unlock(idb, password);
+    const next: Profile = {
+      ...profile,
+      vaultName: backup.vaultName ?? profile.vaultName,
+      lastBackupAt: backup.exportedAt || null,
+    };
+    await idb.saveProfile(next);
+    setProfile(next);
+    setPhase({ name: 'unlocked', vault });
+  };
+
   const startDemo = async () => {
     const { vault, store } = await createDemoVault();
     setSession({ store, demo: true });
@@ -140,11 +182,19 @@ export function App() {
     await loadLocal();
   }, [exitDemo, idb, loadLocal, session.demo]);
 
-  const actions: AppActions = { lock, updateProfile, changeTheme, deleteVault, exitDemo };
+  const actions: AppActions = {
+    lock,
+    updateProfile,
+    changeTheme,
+    exportBackup,
+    deleteVault,
+    exitDemo,
+  };
 
   return (
     // Keyed by phase so toasts (and their Undo actions) never outlive a lock.
     <ToastProvider key={phase.name}>
+      <UpdateNotice />
       <div className="app" data-phase={phase.name}>
         {phase.name === 'loading' && <div className="app-loading" aria-busy="true" />}
         {phase.name === 'onboarding' && (
@@ -152,6 +202,7 @@ export function App() {
             profile={profile}
             onPreview={setProfile}
             onTheme={changeTheme}
+            onRestore={restoreVault}
             onCreate={createVault}
             onDemo={startDemo}
             onDone={(vault) => setPhase({ name: 'unlocked', vault })}
@@ -175,4 +226,19 @@ export function App() {
       </div>
     </ToastProvider>
   );
+}
+
+/** Offers a new version once its files are cached, instead of reloading on its own. */
+function UpdateNotice() {
+  const ready = useUpdateReady();
+  const toast = useToast();
+  useEffect(() => {
+    if (ready) {
+      toast('A new version of PassVaultify is ready', {
+        action: { label: 'Reload', onClick: applyUpdate },
+        duration: 60_000,
+      });
+    }
+  }, [ready, toast]);
+  return null;
 }
