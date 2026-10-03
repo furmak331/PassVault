@@ -48,6 +48,7 @@ jobs:
       # The e2e build grants itself localhost access; it is tested, never shipped.
       - run: pnpm --filter @passvaultify/extension build:e2e
       - run: node apps/extension/e2e/run.mjs
+      - run: node apps/extension/e2e/inline.mjs
       - run: pnpm --filter @passvaultify/extension build
       # Also checks that dist/ isn't the e2e build.
       - run: pnpm --filter @passvaultify/extension package

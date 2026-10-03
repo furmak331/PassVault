@@ -151,8 +151,8 @@
         </li>
         <li>
           <strong>Preferences</strong> are stored unencrypted next to the vault: the vault's name,
-          theme and colour, auto-lock time, whether save prompts are on, and the date of your last
-          backup.
+          theme and colour, auto-lock time, whether autofill suggestions and save offers are on, the
+          sites where you chose never to save, and the date of your last backup.
         </li>
         <li>
           <strong>Backups</strong> are files you download yourself. They stay encrypted with your
@@ -206,11 +206,15 @@
           them, but only if the page's address matches a site saved with that login.
         </li>
         <li>
-          <strong>If you turn on "Offer to save new logins"</strong>, Chrome asks you to grant it
-          access to the sites you visit. It then notices sign-in forms as you submit them and reads
-          the username and password from that form, and nothing else on the page. They are held in
-          memory for up to five minutes so it can offer to save them, then discarded. You can turn
-          this off at any time, and the access is removed with it.
+          <strong>If you turn on autofill on websites</strong>, Chrome asks you to grant it access
+          to the sites you visit. It then looks for sign-in fields on the pages you open. When you
+          click into one, it shows a menu of the logins saved for that site's address, or a strong
+          password on a sign-up form. The menu is the extension's own frame, which the page can't
+          read. When you submit a sign-in or sign-up form, it reads the username and password from
+          that form, and nothing else on the page, so it can offer to save or update the login. They
+          are held in memory for up to five minutes, then discarded; on a two-step sign-in, the
+          username from the first step is kept for ten minutes. You can turn either feature off, or
+          turn autofill off entirely, at any time, and the access is removed with it.
         </li>
       </ul>
 
@@ -240,7 +244,7 @@
         <a href="https://github.com/furmak331/PassVault/issues">github.com/furmak331/PassVault</a>.
       </p>
 
-      <footer>Last updated 2 October 2026.</footer>
+      <footer>Last updated 3 October 2026.</footer>
     </main>
   </body>
 </html>

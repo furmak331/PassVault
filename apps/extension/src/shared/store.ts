@@ -14,8 +14,15 @@ export interface ExtensionProfile {
   accent: Accent;
   /** Minutes before the vault locks itself; 0 means only when the browser closes. */
   autoLockMinutes: number;
-  /** Offer to save logins typed into pages (needs site access, granted separately). */
+  /**
+   * On websites (once site access is granted): offer to save or update a login
+   * after a sign-in or sign-up form is submitted.
+   */
   offerToSave: boolean;
+  /** On websites: suggest saved logins, or a strong password, in the field being typed in. */
+  autofillMenu: boolean;
+  /** Sites (host names) where the person said never to offer saving. */
+  neverSave: string[];
   lastBackupAt: string | null;
 }
 
@@ -24,7 +31,10 @@ export const DEFAULT_PROFILE: ExtensionProfile = {
   theme: 'system',
   accent: 'signal',
   autoLockMinutes: 15,
-  offerToSave: false,
+  // Both only act once site access is granted, which is asked for separately.
+  offerToSave: true,
+  autofillMenu: true,
+  neverSave: [],
   lastBackupAt: null,
 };
 

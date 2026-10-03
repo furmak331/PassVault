@@ -22,10 +22,13 @@ says where each part goes.
 PassVaultify is a password manager that keeps your vault sealed in your own browser. It fills a login only on the site it was saved for, and locks itself when you walk away.
 
 FILLS WHERE IT BELONGS
+• Click into a sign-in field and your logins for that site appear right under it. One click fills.
+• Sign-up forms get a strong password, ready to use.
+• After you sign in, PassVaultify offers to save the login, or update it if the password changed. Two-step sign-ins too.
 • Logins show up only on their own site, or its subdomains.
 • A look-alike address gets nothing. A page that moved from https to http gets nothing.
 • Shared hosting domains (github.io, vercel.app and friends) need an exact match, so one site can't fill another's login.
-• Fill from the popup, or press Ctrl+Shift+L (Cmd+Shift+L on a Mac).
+• Or fill from the toolbar popup, or press Ctrl+Shift+L (Cmd+Shift+L on a Mac).
 
 ZERO KNOWLEDGE
 • Your vault is encrypted on your device with AES-256-GCM, using a key derived from your master password (PBKDF2-SHA256, 600,000 iterations).
@@ -38,8 +41,9 @@ LOCKS ITSELF
 • While unlocked, the key lives in memory, never on disk.
 
 ASKS FOR ALMOST NOTHING
-• No permission warnings at install. PassVaultify can only touch a tab when you click it.
-• "Offer to save new logins" is off by default. Turn it on and Chrome asks you first; turn it off and the access goes with it.
+• No permission warnings at install. Until you turn on autofill, PassVaultify can only touch a tab when you click it.
+• Turn on autofill and Chrome asks you first. It looks only at login fields; turn it off and the access goes with it.
+• The suggestion menu and save bar are PassVaultify's own sealed frames: the website can't read them, or the master password you type into them.
 
 SYNC, IF YOU WANT IT
 • Keep the extension and the PassVaultify web vault in step through a sync server you run.
@@ -88,14 +92,14 @@ leave it empty.
 
 **Permission justifications:**
 
-| Permission                                               | Justification                                                                                                                                                                                                                     |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `activeTab`                                              | Lets PassVaultify read the address of the tab the user opened it on, to show the logins saved for that site, and fill one when the user asks. No access to any other tab.                                                         |
-| `scripting`                                              | Fills a username and password into the current page's sign-in form when the user chooses Fill or presses the fill shortcut. Also registers the save-prompt script, only if the user turns that feature on and grants site access. |
-| `storage`                                                | Keeps the encrypted vault and the user's preferences in the extension's local storage, and the vault key in session storage (memory only) while the vault is unlocked.                                                            |
-| `alarms`                                                 | Locks the vault after the idle time the user picked.                                                                                                                                                                              |
-| `idle`                                                   | Locks the vault when the computer locks.                                                                                                                                                                                          |
-| Host permissions (optional, `https://*/*`, `http://*/*`) | Requested only when the user turns on "Offer to save new logins". Used to notice when a sign-in form is submitted so the extension can offer to save that login. Removed when the feature is turned off.                          |
+| Permission                                               | Justification                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `activeTab`                                              | Lets PassVaultify read the address of the tab the user opened it on, to show the logins saved for that site, and fill one when the user asks. No access to any other tab.                                                                                                          |
+| `scripting`                                              | Fills a username and password into the current page's sign-in form when the user chooses Fill or presses the fill shortcut. Also registers the autofill script, only after the user turns autofill on and grants site access.                                                      |
+| `storage`                                                | Keeps the encrypted vault and the user's preferences in the extension's local storage, and the vault key in session storage (memory only) while the vault is unlocked.                                                                                                             |
+| `alarms`                                                 | Locks the vault after the idle time the user picked.                                                                                                                                                                                                                               |
+| `idle`                                                   | Locks the vault when the computer locks.                                                                                                                                                                                                                                           |
+| Host permissions (optional, `https://*/*`, `http://*/*`) | Requested only when the user turns on autofill on websites. Used to show the logins saved for a site in its sign-in fields, suggest a strong password on sign-up forms, and offer to save or update a login when a sign-in form is submitted. Removed when autofill is turned off. |
 
 **Are you using remote code?** No, I am not using remote code. (All scripts
 are in the package. The extension pages' content security policy is
@@ -114,7 +118,7 @@ device:
 - Location: no
 - Web history: no
 - User activity: no
-- **Website content: yes** (only the username and password in a sign-in form the user submits, when save prompts are on)
+- **Website content: yes** (only the username and password in a sign-in form the user submits, when autofill is on)
 
 Then tick all three certifications:
 
@@ -147,3 +151,21 @@ Version 0.2.0 adds optional sync. When you upload it, in the dashboard:
 
 No new permissions: the extension talks to the server like any web page
 would, and the server's CORS settings allow it.
+
+## Updating to 0.3.0 (autofill on websites)
+
+Version 0.3.0 suggests logins in sign-in fields and offers to save or update
+them, once the user turns autofill on. When you upload it, in the dashboard:
+
+1. **Store listing:** replace the description with the one above ("Fills where
+   it belongs" and "Asks for almost nothing" changed). Swap in new screenshots
+   showing the menu under a field and the save bar if you have them.
+2. **Privacy practices:** replace the `scripting` and host-permission
+   justifications with the ones above. The data-usage boxes stay the same.
+3. **Privacy policy:** nothing to change in the dashboard; the page describes
+   autofill once this version's code is merged.
+
+The permissions are unchanged: site access is still optional and requested
+when the user turns autofill on, so existing users aren't asked to approve
+anything on update. The new `web_accessible_resources` entry (the menu and
+save bar page) needs no justification.

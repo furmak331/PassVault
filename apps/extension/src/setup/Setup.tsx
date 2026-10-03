@@ -28,7 +28,7 @@ import {
   useToast,
 } from '@passvaultify/ui';
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
-import { SITE_ACCESS, syncCaptureScript } from '../shared/capture';
+import { hasSiteAccess, SITE_ACCESS, syncCaptureScript } from '../shared/capture';
 import { isUnlocked, lock, openVault, startSession, unlock } from '../shared/session';
 import {
   ChromeStore,
@@ -46,15 +46,18 @@ interface State {
   profile: ExtensionProfile;
   header: VaultHeader | null;
   unlocked: boolean;
+  /** Whether Chrome lets the extension see websites (autofill and save prompts need it). */
+  siteAccess: boolean;
 }
 
 async function readState(): Promise<State> {
-  const [profile, header, unlocked] = await Promise.all([
+  const [profile, header, unlocked, siteAccess] = await Promise.all([
     loadProfile(),
     new ChromeStore().loadHeader(),
     isUnlocked(),
+    hasSiteAccess(),
   ]);
-  return { profile, header, unlocked };
+  return { profile, header, unlocked, siteAccess };
 }
 
 /** Reads overlap when storage changes in bursts; only the latest one counts. */
@@ -92,7 +95,14 @@ export function Setup() {
     refresh();
     // Another window (the popup, another tab) may lock or change the vault.
     chrome.storage.onChanged.addListener(refresh);
-    return () => chrome.storage.onChanged.removeListener(refresh);
+    // Site access can also be granted from the popup, or removed in Chrome's settings.
+    chrome.permissions.onAdded.addListener(refresh);
+    chrome.permissions.onRemoved.addListener(refresh);
+    return () => {
+      chrome.storage.onChanged.removeListener(refresh);
+      chrome.permissions.onAdded.removeListener(refresh);
+      chrome.permissions.onRemoved.removeListener(refresh);
+    };
   }, [refresh]);
   useBodyTheme(state?.profile ?? null);
   if (!state) return null;
@@ -435,17 +445,28 @@ function Settings({
     refresh();
   };
 
-  const toggleSaving = async (on: boolean) => {
+  const turnOnAutofill = async () => {
     // Asked for at the moment it's switched on, from the click itself.
-    if (on && !(await chrome.permissions.request(SITE_ACCESS))) {
+    if (!(await chrome.permissions.request(SITE_ACCESS))) {
       toast('Site access was not granted, so PassVaultify still can’t see any page.');
       return;
     }
-    await saveProfile({ offerToSave: on });
-    if (!on) await chrome.permissions.remove(SITE_ACCESS).catch(() => false);
+    await saveProfile({ autofillMenu: true, offerToSave: true });
     await syncCaptureScript();
     refresh();
-    toast(on ? 'PassVaultify will offer to save logins you sign in with' : 'Site access removed');
+    toast('Autofill is on. Click into a sign-in field on any site to see it.');
+  };
+
+  const turnOffAutofill = async () => {
+    await chrome.permissions.remove(SITE_ACCESS).catch(() => false);
+    await syncCaptureScript();
+    refresh();
+    toast('Site access removed. PassVaultify can only touch a page when you click it.');
+  };
+
+  const setFeature = async (patch: Partial<ExtensionProfile>) => {
+    await set(patch);
+    await syncCaptureScript();
   };
 
   const download = async () => {
@@ -480,6 +501,72 @@ function Settings({
         </div>
       </section>
 
+      {!state.siteAccess && <AutofillCard onTurnOn={() => void turnOnAutofill()} />}
+
+      <Section title="Autofill on websites">
+        <Row
+          label="Site access"
+          hint={
+            state.siteAccess
+              ? 'PassVaultify looks at login fields on the sites you visit, and nothing else on the page.'
+              : 'Off: PassVaultify can only touch a page when you click it in the toolbar.'
+          }
+        >
+          {state.siteAccess ? (
+            <Button onClick={() => void turnOffAutofill()}>Turn off</Button>
+          ) : (
+            <Button variant="primary" onClick={() => void turnOnAutofill()}>
+              Turn on
+            </Button>
+          )}
+        </Row>
+        {state.siteAccess && (
+          <>
+            <Row
+              label="Suggest logins in sign-in fields"
+              hint="A menu under the field with the logins saved for that site, and a strong password on sign-up forms."
+            >
+              <Switch
+                label={profile.autofillMenu ? 'On' : 'Off'}
+                checked={profile.autofillMenu}
+                onChange={(on) => void setFeature({ autofillMenu: on })}
+              />
+            </Row>
+            <Row
+              label="Offer to save and update logins"
+              hint="After you sign in or sign up, asks whether to save the login, or update the saved password if it changed."
+            >
+              <Switch
+                label={profile.offerToSave ? 'On' : 'Off'}
+                checked={profile.offerToSave}
+                onChange={(on) => void setFeature({ offerToSave: on })}
+              />
+            </Row>
+          </>
+        )}
+        {profile.neverSave.length > 0 && (
+          <Row label="Never offer to save on" hint="Remove a site to be asked again there.">
+            <span className="never-list">
+              {profile.neverSave.map((site) => (
+                <span key={site} className="never-chip">
+                  {site}
+                  <button
+                    type="button"
+                    aria-label={`Ask again on ${site}`}
+                    title="Ask again"
+                    onClick={() =>
+                      void set({ neverSave: profile.neverSave.filter((s) => s !== site) })
+                    }
+                  >
+                    <Icon name="close" />
+                  </button>
+                </span>
+              ))}
+            </span>
+          </Row>
+        )}
+      </Section>
+
       <Section title="Security">
         <Row
           label="Lock after"
@@ -490,16 +577,6 @@ function Settings({
             value={String(profile.autoLockMinutes)}
             options={AUTO_LOCK}
             onChange={(v) => void set({ autoLockMinutes: Number(v) })}
-          />
-        </Row>
-        <Row
-          label="Offer to save new logins"
-          hint="Needs access to the sites you visit, to notice sign-in forms. Off by default: without it, PassVaultify can only touch a page when you click it."
-        >
-          <Switch
-            label={profile.offerToSave ? 'On' : 'Off'}
-            checked={profile.offerToSave}
-            onChange={(on) => void toggleSaving(on)}
           />
         </Row>
         <Row label="Keyboard shortcuts" hint="Change them in Chrome's shortcut settings.">
@@ -587,6 +664,33 @@ function Settings({
       />
       <RemoveDialog open={removeOpen} onOpenChange={setRemoveOpen} onRemoved={refresh} />
     </div>
+  );
+}
+
+/** The invitation to turn on in-page autofill, until it's on. */
+function AutofillCard({ onTurnOn }: { onTurnOn: () => void }) {
+  return (
+    <section className="autofill-card">
+      <span className="autofill-card__icon">
+        <Icon name="key" />
+      </span>
+      <div className="autofill-card__text">
+        <h2 className="autofill-card__title">Let PassVaultify help as you sign in</h2>
+        <p>
+          Click into a sign-in field and your logins for that site appear right under it. Sign-up
+          forms get a strong password, and after you sign in PassVaultify offers to save the login,
+          or update it if the password changed.
+        </p>
+        <p className="autofill-card__fine">
+          Chrome will ask to let PassVaultify read and change data on websites. It looks only at
+          login fields, fills only logins saved for that exact site, and you can turn it off here at
+          any time.
+        </p>
+      </div>
+      <Button variant="primary" size="lg" onClick={onTurnOn}>
+        Turn on autofill
+      </Button>
+    </section>
   );
 }
 

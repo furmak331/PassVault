@@ -108,9 +108,17 @@ as the web vault. The reasoning is in
 - **Fills only where a login belongs:** the saved site or its subdomains,
   https never downgraded to http, and shared hosts such as `github.io` matched
   exactly. The page's address is checked again right before filling.
-- **No permission warnings at install.** It can only touch a tab you click it
-  on. Save prompts for new logins are optional and off by default; turning
-  them on asks for site access, turning them off removes it.
+- **Autofill on websites, once you turn it on.** Click into a sign-in field
+  and the logins saved for that site appear under it; one click fills. Sign-up
+  forms get a strong password. After you sign in, a bar offers to save the
+  login, or to update it if the password changed (two-step sign-ins too), with
+  "Never for this site" when you don't want it. The menu and bar are the
+  extension's own frames, so the page can't read them or the master password
+  typed into them. The reasoning is in
+  [ADR 0011](docs/adr/0011-in-page-autofill.md).
+- **No permission warnings at install.** Until you turn autofill on, it can
+  only touch a tab you click it on. Turning it on asks Chrome for site access;
+  turning it off hands it back.
 - **Locks itself** after the idle time you choose, when the computer locks,
   or when Chrome closes. While unlocked, the key is held in Chrome's
   in-memory session storage, out of reach of web pages.
