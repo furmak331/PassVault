@@ -1,0 +1,54 @@
+# PassVaultify sync server at home, reachable only from your own devices
+# through Tailscale, at https://vault.<your-tailnet>.ts.net. No ports are
+# opened on your router; Tailscale provides the HTTPS certificate.
+# Step by step (Windows laptop now, a mini PC later): docs/homelab.md
+services:
+  # Joins your tailnet as the machine "vault" and serves HTTPS to the server.
+  tailscale:
+    image: tailscale/tailscale:stable
+    hostname: ${TS_HOSTNAME:-vault}
+    restart: unless-stopped
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_HOSTNAME: ${TS_HOSTNAME:-vault}
+      TS_STATE_DIR: /var/lib/tailscale
+      # Works the same on Docker Desktop and on Linux, with no extra privileges.
+      TS_USERSPACE: 'true'
+      TS_SERVE_CONFIG: /config/serve.json
+    volumes:
+      - tailscale:/var/lib/tailscale
+      - ./serve.json:/config/serve.json:ro
+
+  server:
+    build: ../..
+    image: passvaultify-server
+    restart: unless-stopped
+    # Shares the tailscale container's network: reachable only through it.
+    network_mode: service:tailscale
+    environment:
+      PASSVAULTIFY_REGISTRATION: ${PASSVAULTIFY_REGISTRATION:-open}
+    # Plenty for a household, and keeps a laptop's memory free.
+    mem_limit: 768m
+    volumes:
+      - data:/data
+    depends_on:
+      - tailscale
+
+  # Copies the database once a day into BACKUP_DIR, keeping the last BACKUP_KEEP.
+  backup:
+    build: ./backup
+    restart: unless-stopped
+    environment:
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+    volumes:
+      - data:/data
+      - ${BACKUP_DIR:-./backups}:/backups
+    depends_on:
+      - server
+
+volumes:
+  # The database lives in a Docker volume, not a Windows folder: SQLite needs
+  # a real Linux file system to lock its files safely.
+  data:
+  tailscale:

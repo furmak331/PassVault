@@ -120,6 +120,23 @@ jobs:
       - if: failure()
         run: cat "$RUNNER_TEMP/server.log" "$RUNNER_TEMP"/server-e2e.log || true
       - run: docker build -t passvaultify-server apps/server
+      # The homelab setup: its compose file is valid, and its backup container
+      # copies the real server's live database without leaving files the
+      # server's user can't open.
+      - name: Homelab backups
+        working-directory: apps/server/deploy/homelab
+        run: |
+          cp .env.example .env && docker compose config --quiet && rm .env
+          docker build -t passvaultify-backup backup
+          docker run -d --name pv-server -v pv-data:/data passvaultify-server
+          for i in $(seq 1 60); do docker exec pv-server test -f /data/passvaultify.db && break; sleep 1; done
+          mkdir -p "$RUNNER_TEMP/backups"
+          docker run -d --name pv-backup -v pv-data:/data -v "$RUNNER_TEMP/backups:/backups" passvaultify-backup
+          for i in $(seq 1 30); do ls "$RUNNER_TEMP"/backups/passvaultify-*.db 2>/dev/null && break; sleep 1; done
+          docker logs pv-backup
+          ls "$RUNNER_TEMP"/backups/passvaultify-*.db
+          test -z "$(docker exec pv-server find /data ! -user 10001)"
+          docker rm -f pv-backup pv-server
 
   vectors:
     name: Crypto test vectors are reproducible
