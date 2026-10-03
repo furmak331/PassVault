@@ -4,8 +4,6 @@ import {
   generateRandom,
   hostOf,
   matchingLogins,
-  matchUrl,
-  type LoginItem,
   type Vault,
   type VaultHeader,
   type VaultItem,
@@ -22,7 +20,9 @@ import {
 } from '@passvaultify/ui';
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import type { SyncStatus } from '@passvaultify/core';
+import { hasSiteAccess, SITE_ACCESS } from '../shared/capture';
 import { FILL_MESSAGES, fillLogin } from '../shared/fill';
+import { saveIntent } from '../shared/logins';
 import { send } from '../shared/messages';
 import { clearPending, getPending, type PendingLogin } from '../shared/pending';
 import { lock, openVault, touch, unlock, vaultHeader } from '../shared/session';
@@ -245,6 +245,7 @@ function VaultView({
   const [view, setView] = useState<View>({ name: 'list' });
   const [message, setMessage] = useState<{ text: string; tone?: 'warn' } | null>(null);
   const [pending, setPendingLogin] = useState<PendingLogin | null>(null);
+  const [siteAccess, setSiteAccess] = useState(true);
 
   const url = isWebPage(tab?.url) ? tab?.url : undefined;
   const host = hostLabel(url);
@@ -264,6 +265,17 @@ function VaultView({
     if (tab?.id === undefined) return;
     void getPending(tab.id).then(setPendingLogin);
   }, [tab?.id]);
+
+  useEffect(() => {
+    void hasSiteAccess().then(setSiteAccess);
+  }, []);
+
+  // Chrome may close the popup while it asks; the background finishes turning it on.
+  const turnOnAutofill = () =>
+    void chrome.permissions.request(SITE_ACCESS).then((granted) => {
+      setSiteAccess(granted);
+      if (granted) say('Autofill is on. Click into a sign-in field to see it.');
+    });
 
   const say = (text: string, tone?: 'warn') => setMessage(tone ? { text, tone } : { text });
 
@@ -390,6 +402,10 @@ function VaultView({
           <span className="pop__message" data-tone={message.tone} role="status">
             {message.text}
           </span>
+        ) : !siteAccess ? (
+          <button type="button" className="pop__hint pop__hint--on" onClick={turnOnAutofill}>
+            Turn on autofill in sign-in fields
+          </button>
         ) : syncNeedsYou ? (
           <button type="button" className="pop__hint pop__hint--warn" onClick={openSettings}>
             Sync needs you. Open settings
@@ -481,21 +497,14 @@ function SaveBanner({
   onDone: (message?: string) => void;
 }) {
   const host = hostLabel(pending.url);
-  const sameSite = vault
-    .list()
-    .filter(
-      (i): i is VaultItem & { data: LoginItem } =>
-        i.data.type === 'login' && i.data.urls.some((u) => matchUrl(u, pending.url)),
-    );
-  const existing = sameSite.find(
-    (i) => i.data.username.toLowerCase() === pending.username.toLowerCase(),
-  );
+  const intent = saveIntent(vault, pending.url, pending.username, pending.password);
+  const existing = intent.kind === 'update' ? intent.item : undefined;
 
   useEffect(() => {
     // Already saved exactly like this: nothing to ask.
-    if (existing && existing.data.password === pending.password) onDone();
-  }, [existing, pending.password, onDone]);
-  if (existing && existing.data.password === pending.password) return null;
+    if (intent.kind === 'same') onDone();
+  }, [intent.kind, onDone]);
+  if (intent.kind === 'same') return null;
 
   const save = async () => {
     const origin = new URL(pending.url).origin;

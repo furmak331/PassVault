@@ -1,0 +1,232 @@
+/* The in-page menu and save bar. The page sizes the frame to .inline's height. */
+html,
+body {
+  margin: 0;
+  overflow: hidden;
+}
+.inline {
+  padding: 8px;
+}
+
+.menu,
+.bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.menu__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+.menu__head .pv-btn--icon {
+  width: 28px;
+  min-height: 28px;
+  margin-left: auto;
+  flex: none;
+}
+.menu__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 12px var(--pv-mono);
+  color: var(--pv-ink-2);
+}
+.menu__note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--pv-ink-2);
+}
+.menu__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.menu__foot .menu__note {
+  flex: 1;
+  font-size: 11.5px;
+  color: var(--pv-ink-3);
+}
+.menu__foot .pv-btn--icon {
+  width: 30px;
+  min-height: 30px;
+}
+
+/* One login, or the suggested password: the whole row is the button. */
+.picks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 280px;
+  margin: 0 -4px;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--pv-radius);
+  background: none;
+  color: var(--pv-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pick:hover,
+.pick:focus-visible {
+  background: var(--pv-raised);
+}
+.pick__icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 8px;
+  background: var(--pv-acc-soft);
+  color: var(--pv-acc);
+}
+.pick__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pick__title,
+.pick__sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pick__title {
+  font-weight: 640;
+  font-size: 13.5px;
+}
+.pick__sub {
+  font-size: 12px;
+  color: var(--pv-ink-3);
+}
+.pick__secret {
+  font: 600 12px var(--pv-mono);
+  color: var(--pv-ink-2);
+}
+.pick__go {
+  font-size: 12px;
+  font-weight: 640;
+  color: var(--pv-acc);
+  opacity: 0;
+}
+.pick:hover .pick__go,
+.pick:focus-visible .pick__go {
+  opacity: 1;
+}
+
+.unlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.inline__error {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--pv-danger);
+}
+
+/* The save bar */
+.bar__title {
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+.bar__fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 8px 10px;
+  border-radius: var(--pv-radius);
+  background: var(--pv-surface);
+  box-shadow: inset 0 0 0 1px var(--pv-line);
+}
+.bar__label {
+  font-size: 11.5px;
+  color: var(--pv-ink-3);
+}
+.bar__value,
+.bar__input {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 12.5px var(--pv-mono);
+  color: var(--pv-ink);
+}
+.bar__input {
+  height: 28px;
+  margin: 0 -6px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+}
+.bar__input:hover,
+.bar__input:focus {
+  background: var(--pv-raised);
+  outline: none;
+}
+.bar__secret {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.bar__secret > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bar__secret .pv-btn--icon {
+  width: 26px;
+  min-height: 26px;
+  flex: none;
+}
+.bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bar__never {
+  margin-right: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--pv-ink-3);
+  font: 600 12px var(--pv-sans);
+  cursor: pointer;
+}
+.bar__never:hover {
+  color: var(--pv-ink);
+  text-decoration: underline;
+}
+.bar--done {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.bar__check {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--pv-ok) 18%, transparent);
+  color: var(--pv-ok);
+}

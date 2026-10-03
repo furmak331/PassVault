@@ -45,6 +45,7 @@ export default defineConfig(({ mode }) => ({
       input: {
         popup: file('./popup.html'),
         setup: file('./setup.html'),
+        inline: file('./inline.html'),
         background: file('./src/background/index.ts'),
       },
       output: {

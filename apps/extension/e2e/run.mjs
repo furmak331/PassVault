@@ -154,14 +154,12 @@ try {
   check('popup unlocks with the master password', true);
   await popup.close();
 
-  // Offer to save: switch it on, sign up on the site, and save from the popup.
-  await setup.bringToFront();
-  await setup.getByRole('switch', { name: /Off|On/ }).click();
-  await setup.waitForTimeout(500);
+  // Offer to save: the e2e build already has site access, so the content script
+  // is registered from the start. Sign up on the site, and save from the popup.
   const registered = await setup.evaluate(
     async () => (await chrome.scripting.getRegisteredContentScripts()).length,
   );
-  check('save prompts register the content script', registered === 1);
+  check('site access registers the content script', registered === 1);
   await site.goto(`${SITE}/signup`);
   await site.fill('#user', 'newuser');
   await site.fill('#pw', 'Fresh-Passw0rd!');
