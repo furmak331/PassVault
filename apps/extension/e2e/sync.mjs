@@ -95,16 +95,25 @@ try {
   await addLogin(popup, 'first@example.com');
   await popup.close();
 
-  // Profile 2 signs in from the welcome screen and gets the vault.
+  // Settings → Add a device: a setup link and its QR code.
+  await one.setup.getByRole('button', { name: 'Show link' }).click();
+  await one.setup.locator('.pv-qr').waitFor();
+  const link = await one.setup.locator('.add-device__link').innerText();
+  check('profile 1 shows a setup link with a QR code', link.includes('#connect='), link);
+  if (shots) await one.setup.screenshot({ path: `${shots}/ext-sync-add-device.png` });
+
+  // Profile 2 pastes the link on the welcome screen: the fingerprint is checked for it.
   const two = await profile();
   profiles.push(two);
-  await two.setup.getByLabel('Server address').fill(SERVER);
+  await two.setup.getByLabel('Server address').fill(link);
   await two.setup.getByRole('button', { name: 'Check server' }).click();
+  await two.setup.locator('.server-id__verified').waitFor();
+  check('a pasted setup link checks the fingerprint', true);
   await two.setup.getByLabel('Email').fill(email);
   await two.setup.getByLabel('Master password').first().fill(PASSWORD);
   await two.setup.getByRole('button', { name: 'Sign in and sync' }).click();
   await two.setup.getByText(/Synced through/).waitFor({ timeout: 20000 });
-  check('profile 2 signs in from the welcome screen', true);
+  check('profile 2 signs in with the link', true);
 
   popup = await two.popup();
   await popup.locator('.row__sub', { hasText: 'first@example.com' }).waitFor({ timeout: 20000 });

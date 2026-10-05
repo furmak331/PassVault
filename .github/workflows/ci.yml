@@ -116,6 +116,7 @@ jobs:
           pnpm --filter @passvaultify/extension build:e2e
           for i in $(seq 1 60); do curl -sf localhost:8081/health && curl -sf localhost:4173 > /dev/null && break; sleep 1; done
           SYNC_SERVER_URL=http://localhost:8081 node apps/web/e2e/sync.mjs
+          SYNC_SERVER_URL=http://localhost:8081 node apps/web/e2e/setup-link.mjs
           SYNC_SERVER_URL=http://localhost:8081 node apps/extension/e2e/sync.mjs
       - if: failure()
         run: cat "$RUNNER_TEMP/server.log" "$RUNNER_TEMP"/server-e2e.log || true

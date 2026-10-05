@@ -60,3 +60,8 @@ export function hostLabel(url: string | undefined): string {
 }
 
 export const isWebPage = (url: string | undefined) => !!url && /^https?:\/\//i.test(url);
+
+/** The web vault, which setup links open. Test builds point it at a local copy. */
+export const WEB_VAULT_URL: string =
+  (import.meta.env.VITE_WEB_VAULT_URL as string | undefined) ??
+  'https://furmak331.github.io/PassVault/';

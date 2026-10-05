@@ -1,4 +1,5 @@
 import {
+  buildSetupLink,
   checkServer,
   compareVaults,
   createSyncAccount,
@@ -14,7 +15,16 @@ import {
   type SyncStatus,
   type VaultHeader,
 } from '@passvaultify/core';
-import { Button, Dialog, Fingerprint, Segmented, TextField, useToast } from '@passvaultify/ui';
+import {
+  Button,
+  Dialog,
+  Fingerprint,
+  Icon,
+  QrCode,
+  Segmented,
+  TextField,
+  useToast,
+} from '@passvaultify/ui';
 import { useEffect, useState, type FormEvent } from 'react';
 import { send } from '../shared/messages';
 import { openVault, startSession } from '../shared/session';
@@ -27,7 +37,7 @@ import {
   saveSyncSettings,
   scheduleSync,
 } from '../shared/sync';
-import { useRings } from '../shared/ui';
+import { useRings, WEB_VAULT_URL } from '../shared/ui';
 
 /** Ask the background worker to sync now; it keeps going if this page closes. */
 const syncNow = () => send({ type: 'sync-vault' }) as Promise<SyncStatus | null>;
@@ -47,7 +57,10 @@ export function syncErrorText(error: unknown): string {
 
 // ---------- Shared steps ----------
 
-function ServerForm({ onChecked }: { onChecked: (server: string, info: ServerInfo) => void }) {
+type Checked = { server: string; info: ServerInfo; verified: boolean };
+
+/** An address, or a setup link from "Add a device" on a device that's already connected. */
+function ServerForm({ onChecked }: { onChecked: (checked: Checked) => void }) {
   const [address, setAddress] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,8 +70,7 @@ function ServerForm({ onChecked }: { onChecked: (server: string, info: ServerInf
     setBusy(true);
     setError(null);
     try {
-      const { server, info } = await checkServer(address);
-      onChecked(server, info);
+      onChecked(await checkServer(address));
     } catch (err) {
       setBusy(false);
       setError(syncErrorText(err));
@@ -67,13 +79,17 @@ function ServerForm({ onChecked }: { onChecked: (server: string, info: ServerInf
   return (
     <form className="stack" onSubmit={(e) => void submit(e)}>
       <TextField
-        label="Server address"
+        label="Server address or setup link"
         placeholder="vault.example.com"
         inputMode="url"
         spellCheck={false}
         autoComplete="url"
         value={address}
-        onChange={(e) => setAddress(e.target.value)}
+        onChange={(e) => {
+          setAddress(e.target.value);
+          setError(null);
+        }}
+        hint="On a device that's already connected, Sync → Add a device gives a link to paste here."
       />
       {error && (
         <p className="form-error" role="alert">
@@ -87,7 +103,16 @@ function ServerForm({ onChecked }: { onChecked: (server: string, info: ServerInf
   );
 }
 
-function ServerIdentity({ server, fingerprint }: { server: string; fingerprint: string }) {
+function ServerIdentity({
+  server,
+  fingerprint,
+  verified,
+}: {
+  server: string;
+  fingerprint: string;
+  /** The fingerprint matched a setup link, so there's nothing to compare by eye. */
+  verified: boolean;
+}) {
   const rings = useRings(fingerprint);
   return (
     <div className="server-id">
@@ -95,9 +120,16 @@ function ServerIdentity({ server, fingerprint }: { server: string; fingerprint: 
       <div className="server-id__text">
         <strong>{hostOf(server)}</strong>
         <span className="pv-fp-code">{fingerprint}</span>
-        <span className="hint">
-          The server's fingerprint. Check it matches {hostOf(server)}/v1/server before signing in.
-        </span>
+        {verified ? (
+          <span className="server-id__verified">
+            <Icon name="check" />
+            Matches your setup link
+          </span>
+        ) : (
+          <span className="hint">
+            The server's fingerprint. Check it matches {hostOf(server)}/v1/server before signing in.
+          </span>
+        )}
       </div>
     </div>
   );
@@ -108,11 +140,13 @@ type Mode = 'create' | 'signin';
 function AccountForm({
   server,
   info,
+  verified,
   allowCreate,
   onSubmit,
 }: {
   server: string;
   info: ServerInfo;
+  verified: boolean;
   allowCreate: boolean;
   onSubmit: (mode: Mode, email: string, password: string) => Promise<void>;
 }) {
@@ -136,7 +170,7 @@ function AccountForm({
   };
   return (
     <form className="stack" onSubmit={(e) => void submit(e)}>
-      <ServerIdentity server={server} fingerprint={info.fingerprint} />
+      <ServerIdentity server={server} fingerprint={info.fingerprint} verified={verified} />
       {allowCreate && (
         <Segmented
           label="Account"
@@ -182,16 +216,17 @@ function AccountForm({
 // ---------- First run: this browser joins a vault on a server ----------
 
 export function SignInForm({ onStart, onDone }: { onStart: () => void; onDone: () => void }) {
-  const [server, setServer] = useState<{ url: string; info: ServerInfo } | null>(null);
-  if (!server) return <ServerForm onChecked={(url, info) => setServer({ url, info })} />;
+  const [server, setServer] = useState<Checked | null>(null);
+  if (!server) return <ServerForm onChecked={setServer} />;
   return (
     <AccountForm
-      server={server.url}
+      server={server.server}
       info={server.info}
+      verified={server.verified}
       allowCreate={false}
       onSubmit={async (_mode, email, password) => {
         const { settings, header } = await signInToSync({
-          server: server.url,
+          server: server.server,
           serverFingerprint: server.info.fingerprint,
           email,
           password,
@@ -284,6 +319,7 @@ export function SyncSection({ unlocked }: { unlocked: boolean }) {
         </span>
       </div>
       {status?.state === 'signed-out' && unlocked && <SignInAgain settings={settings} />}
+      <AddDevice settings={settings} />
       <div className="setting">
         <span className="setting__label">
           Stop syncing in this browser
@@ -302,6 +338,60 @@ export function SyncSection({ unlocked }: { unlocked: boolean }) {
           )}
         </span>
       </div>
+    </>
+  );
+}
+
+/** A link and QR code that set another device up for this server, fingerprint included. */
+function AddDevice({ settings }: { settings: SyncSettings }) {
+  const [shown, setShown] = useState(false);
+  const toast = useToast();
+  const link = buildSetupLink(WEB_VAULT_URL, settings.server, settings.serverFingerprint);
+  return (
+    <>
+      <div className="setting">
+        <span className="setting__label">
+          Add a device
+          <span className="setting__hint">
+            A link that sets up the web vault on another device for this server, and checks its
+            fingerprint for you.
+          </span>
+        </span>
+        <span className="setting__control">
+          <Button icon={shown ? 'close' : 'plus'} onClick={() => setShown(!shown)}>
+            {shown ? 'Hide' : 'Show link'}
+          </Button>
+        </span>
+      </div>
+      {shown && (
+        <div className="add-device">
+          <QrCode value={link} size={160} label={`Setup link for ${hostOf(settings.server)}`} />
+          <div className="add-device__text">
+            <p>
+              <strong>Phone:</strong> scan the code with the camera.{' '}
+              <strong>Another computer:</strong> open the link.{' '}
+              <strong>The extension in another browser:</strong> paste it into Server address.
+            </p>
+            <code className="add-device__link">{link}</code>
+            <Button
+              icon="copy"
+              onClick={() =>
+                void navigator.clipboard.writeText(link).then(
+                  () => toast('Setup link copied'),
+                  () => toast("Couldn't copy the link"),
+                )
+              }
+            >
+              Copy link
+            </Button>
+            <p className="hint">
+              It holds only the server's address and fingerprint, so it's safe to send. The new
+              device still needs your email and master password, and has to be able to reach the
+              server (for a server at home, with Tailscale on).
+            </p>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -389,7 +479,7 @@ function SignInAgain({ settings }: { settings: SyncSettings }) {
 
 type Stage =
   | { name: 'server' }
-  | { name: 'account'; server: string; info: ServerInfo }
+  | ({ name: 'account' } & Checked)
   | { name: 'different'; settings: SyncSettings; header: VaultHeader; password: string };
 
 /** Connect the vault already in this browser: a new account from it, or sign in to one. */
@@ -424,12 +514,13 @@ function ConnectDialog({
       description="Your vault is encrypted here before anything is sent. The server stores ciphertext it has no key for."
     >
       {stage.name === 'server' && (
-        <ServerForm onChecked={(server, info) => setStage({ name: 'account', server, info })} />
+        <ServerForm onChecked={(checked) => setStage({ name: 'account', ...checked })} />
       )}
       {stage.name === 'account' && (
         <AccountForm
           server={stage.server}
           info={stage.info}
+          verified={stage.verified}
           allowCreate
           onSubmit={async (mode, email, password) => {
             const vault = await openVault();

@@ -7,5 +7,6 @@ export * from './Dialog';
 export * from './Fingerprint';
 export * from './icons';
 export * from './Meter';
+export * from './QrCode';
 export * from './SecretText';
 export * from './Toast';

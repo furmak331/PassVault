@@ -191,8 +191,10 @@ own devices through Tailscale, with no domain or open ports), follow
 
 Connect from the web vault (Settings → Sync, or "Your own server" when creating
 a vault) or the extension's settings page. You check the server's fingerprint,
-then create an account from your vault or sign in; a new device signs in from
-the welcome screen. How the clients sync is in
+then create an account from your vault or sign in. To add another device, Sync →
+Add a device shows a setup link and QR code: opening it (or pasting it into the
+extension) fills in the server and checks its fingerprint, so the new device
+only needs your email and master password. How the clients sync is in
 [ADR 0010](docs/adr/0010-client-sync.md):
 
 - Every record remembers the server revision it's based on, and whether it has

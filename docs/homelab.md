@@ -89,15 +89,26 @@ certificate.
 
 ## 6. Connect your devices
 
+Connect the first device by hand:
+
 - **Web vault:** Settings → Sync → Connect, and enter
   `https://vault.tail1234.ts.net`. Check the fingerprint matches, then create an
   account from your vault. Your account's password is your master password.
-- **Chrome extension:** on its settings page, Sync → Connect, with the same
-  address. Choose **Sign in** and use the email and master password from the web
-  vault. If the extension had its own vault with a different password, it
-  switches to the account's vault and copies its own logins in.
-- **Another device:** on the web vault's welcome screen, choose "Sign in to your
-  server".
+
+Then add the rest with a setup link, which fills in the server and checks its
+fingerprint for you. On the connected device, open **Sync → Add a device**
+(the extension has it on its settings page). It shows a link and a QR code.
+
+- **A phone:** scan the QR code with the camera. The web vault opens, ready to
+  sign in.
+- **Another computer:** open the link.
+- **The Chrome extension:** on its setup page or under Sync → Connect, paste the
+  link into the server address. Choose **Sign in** with the same email and
+  master password. If the extension had its own vault with a different
+  password, it switches to the account's vault and copies its own logins in.
+
+The link holds only the server's address and fingerprint, so it's safe to send
+to yourself. Each device still needs your email and master password.
 
 Every device needs Tailscale switched on to sync. When it's off, the apps keep
 working and catch up later.
