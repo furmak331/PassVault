@@ -4,6 +4,7 @@ import {
   signInToSync,
   type Fingerprint as VaultFingerprint,
   type ServerInfo,
+  type SetupLink,
   type SyncSettings,
   type Vault,
   type VaultBackup,
@@ -13,6 +14,7 @@ import { Badge, Button, Dialog, Fingerprint, Icon, TextField } from '@passvaulti
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useRings } from './hooks';
 import { RestoreDialog } from './ImportDialog';
+import { pendingSetupLink, setupLinkUsed } from './setupLink';
 import { deviceName } from './sync';
 import { AccountStep, ServerStep } from './SyncDialog';
 import { ThemeToggle } from './ThemeToggle';
@@ -61,13 +63,15 @@ export function Onboarding({
   onRestore,
   onSignIn,
 }: OnboardingProps) {
+  // Opened from a setup link: go straight to signing in to that server.
+  const [setupLink] = useState(pendingSetupLink);
   const [step, setStep] = useState<Step>('welcome');
   const [created, setCreated] = useState<{ vault: Vault; fingerprint: VaultFingerprint } | null>(
     null,
   );
   const [strength, setStrength] = useState(0);
   const [restoreOpen, setRestoreOpen] = useState(false);
-  const [signInOpen, setSignInOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(Boolean(setupLink));
   const [typed, setTyped] = useState(0);
   const index = NUMBERED.indexOf(step);
   const back = () => setStep(index > 0 ? (NUMBERED[index - 1] as Step) : 'welcome');
@@ -148,7 +152,15 @@ export function Onboarding({
         </div>
       </section>
       <RestoreDialog open={restoreOpen} onOpenChange={setRestoreOpen} onRestore={onRestore} />
-      <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} onSignIn={onSignIn} />
+      <SignInDialog
+        open={signInOpen}
+        onOpenChange={setSignInOpen}
+        onSignIn={async (settings, header, password) => {
+          await onSignIn(settings, header, password);
+          setupLinkUsed();
+        }}
+        link={setupLink}
+      />
     </main>
   );
 }
@@ -712,12 +724,18 @@ function SignInDialog({
   open,
   onOpenChange,
   onSignIn,
+  link,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSignIn: OnboardingProps['onSignIn'];
+  link: SetupLink | null;
 }) {
-  const [server, setServer] = useState<{ url: string; info: ServerInfo } | null>(null);
+  const [server, setServer] = useState<{
+    url: string;
+    info: ServerInfo;
+    verified: boolean;
+  } | null>(null);
   const close = (next: boolean) => {
     if (!next) setServer(null);
     onOpenChange(next);
@@ -733,6 +751,7 @@ function SignInDialog({
         <AccountStep
           server={server.url}
           info={server.info}
+          verified={server.verified}
           allowCreate={false}
           onBack={() => setServer(null)}
           onSubmit={async (_mode, email, password) => {
@@ -747,7 +766,10 @@ function SignInDialog({
           }}
         />
       ) : (
-        <ServerStep onChecked={(url, info) => setServer({ url, info })} />
+        <ServerStep
+          link={link}
+          onChecked={(url, info, verified) => setServer({ url, info, verified })}
+        />
       )}
     </Dialog>
   );

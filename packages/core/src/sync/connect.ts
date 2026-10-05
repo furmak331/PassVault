@@ -13,8 +13,25 @@ import type { SyncSettings } from './engine';
 /** Accepts "vault.example.com", "https://vault.example.com/" and the like. */
 export function normalizeServerUrl(input: string): string {
   let url = input.trim();
+  if (/^[^\s/@:]+@[^\s/@]+\.[^\s/@]+$/.test(url)) {
+    throw new Error(
+      "That's an email address. Enter the server's address, like vault.example.com, or paste a setup link from a device that's already connected.",
+    );
+  }
   if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-  const parsed = new URL(url);
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("That isn't a server address. It looks like vault.example.com.");
+  }
+  if (
+    parsed.username ||
+    parsed.password ||
+    (!parsed.hostname.includes('.') && !isLocalHost(parsed.hostname))
+  ) {
+    throw new Error("That isn't a server address. It looks like vault.example.com.");
+  }
   if (parsed.protocol !== 'https:' && !isLocalHost(parsed.hostname)) {
     throw new Error(
       'Use an https:// address. Plain http is only allowed for a server on this computer.',
@@ -27,14 +44,71 @@ function isLocalHost(host: string): boolean {
   return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
 }
 
-/** Step 1: reach the server and learn its fingerprint and whether it takes new accounts. */
+/**
+ * A setup link: a web vault address whose fragment names a sync server and its
+ * fingerprint, e.g. https://example.github.io/PassVault/#connect=vault.example.com&fp=6F369FA535F6
+ * A device that's already connected shows it (and a QR code of it) so another
+ * can join without typing an address or comparing fingerprints. Both parts
+ * are public; the fragment never reaches the web vault's host.
+ */
+export interface SetupLink {
+  server: string;
+  /** Grouped like the server shows it: "6F36 9FA5 35F6". */
+  fingerprint: string;
+}
+
+const compactFingerprint = (fingerprint: string) => fingerprint.replace(/[\s-]/g, '').toUpperCase();
+
+/** Whether two fingerprints are the same, however they're spaced or cased. */
+export function sameFingerprint(a: string, b: string): boolean {
+  return compactFingerprint(a) === compactFingerprint(b);
+}
+
+export function buildSetupLink(appUrl: string, server: string, fingerprint: string): string {
+  const url = new URL(server);
+  // An https server at its root needs only its host name.
+  const short =
+    url.protocol === 'https:' && (url.pathname === '/' || url.pathname === '') ? url.host : server;
+  const fragment = new URLSearchParams({ connect: short, fp: compactFingerprint(fingerprint) });
+  return `${appUrl.split('#')[0]}#${fragment.toString()}`;
+}
+
+/** The setup link in a pasted string or a page address, or null if there isn't one. */
+export function parseSetupLink(input: string): SetupLink | null {
+  const text = input.trim();
+  const hash = text.indexOf('#');
+  const fragment = hash >= 0 ? text.slice(hash + 1) : text.startsWith('connect=') ? text : '';
+  if (!fragment) return null;
+  const params = new URLSearchParams(fragment);
+  const server = params.get('connect');
+  const fp = compactFingerprint(params.get('fp') ?? '');
+  if (!server || !/^[0-9A-F]{8,64}$/.test(fp)) return null;
+  try {
+    return { server: normalizeServerUrl(server), fingerprint: fp.replace(/(.{4})(?=.)/g, '$1 ') };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Step 1: reach the server and learn its fingerprint and whether it takes new
+ * accounts. Takes an address or a setup link; with a link, the server's
+ * fingerprint must match the link's, and `verified` says it was checked.
+ */
 export async function checkServer(
-  input: string,
+  input: string | SetupLink,
   fetchImpl?: typeof fetch,
-): Promise<{ server: string; info: ServerInfo }> {
-  const server = normalizeServerUrl(input);
+): Promise<{ server: string; info: ServerInfo; verified: boolean }> {
+  const link = typeof input === 'string' ? parseSetupLink(input) : input;
+  const server = link ? link.server : normalizeServerUrl(input as string);
   const client = new SyncClient({ server, ...(fetchImpl ? { fetch: fetchImpl } : {}) });
-  return { server, info: await client.serverInfo() };
+  const info = await client.serverInfo();
+  if (link && !sameFingerprint(link.fingerprint, info.fingerprint)) {
+    throw new Error(
+      `The server at ${new URL(server).host} has a different fingerprint from the setup link (${info.fingerprint}, not ${link.fingerprint}). Don't sign in: ask for a new link from a device you trust.`,
+    );
+  }
+  return { server, info, verified: Boolean(link) };
 }
 
 export interface ConnectOptions {

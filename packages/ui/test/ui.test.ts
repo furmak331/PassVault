@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { charKind, dataChipText, fingerprintArcs, toBits } from '../src';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { charKind, dataChipText, fingerprintArcs, QrCode, toBits } from '../src';
 
 describe('fingerprintArcs', () => {
   it('reads bits most significant first', () => {
@@ -61,5 +63,22 @@ describe('dataChipText', () => {
       'Self-hosted · vault.home.arpa',
     );
     expect(dataChipText({ mode: 'cloud' })).toBe('PassVaultify Cloud · eu-1');
+  });
+});
+
+describe('QrCode', () => {
+  it('draws the code dark on white, with a quiet zone, and labels it', () => {
+    const html = renderToStaticMarkup(
+      createElement(QrCode, {
+        value: 'https://example.com/#connect=v.example.com',
+        label: 'Setup link',
+      }),
+    );
+    expect(html).toContain('aria-label="Setup link"');
+    const viewBox = /viewBox="0 0 (\d+) \1"/.exec(html);
+    // A version-3 code is 29 modules, plus 4 of quiet zone on each side.
+    expect(Number(viewBox?.[1])).toBeGreaterThanOrEqual(29);
+    expect(html).toContain('fill="#fff"');
+    expect(html).toMatch(/<path d="M\d+ \d+h1v1h-1z/);
   });
 });

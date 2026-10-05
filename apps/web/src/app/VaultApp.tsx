@@ -36,6 +36,7 @@ import { Brand } from './Onboarding';
 import { backupIsStale, type Profile, type ThemeSetting } from './profile';
 import { SettingsDialog } from './SettingsDialog';
 import { hostOf, syncLabel, syncSentence } from './sync';
+import { pendingSetupLink, setupLinkUsed } from './setupLink';
 import { SyncDialog } from './SyncDialog';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -69,8 +70,23 @@ export function VaultApp({ vault, profile, demo, actions, sync }: VaultAppProps)
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [syncOpen, setSyncOpen] = useState(false);
+  // Opened from a setup link: go to connecting, unless this device already syncs.
+  const [setupLink] = useState(() => (demo ? null : pendingSetupLink()));
+  const [syncOpen, setSyncOpen] = useState(() => Boolean(setupLink && !sync.connection));
   const copy = useCopy();
+
+  useEffect(() => {
+    if (!setupLink) return;
+    setupLinkUsed();
+    if (!sync.connection) return;
+    toast(
+      sync.connection.server === setupLink.server
+        ? `This device already syncs with ${new URL(setupLink.server).host}`
+        : 'This device already syncs with another server. Disconnect it first to use that link.',
+    );
+    // Once, when the vault opens; later connection changes aren't about the link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setupLink]);
 
   // Items arriving from another device re-render the lists, like a local write does.
   useEffect(
@@ -809,6 +825,7 @@ export function VaultApp({ vault, profile, demo, actions, sync }: VaultAppProps)
           engine={sync.engine}
           status={sync.status}
           actions={sync.actions}
+          link={setupLink}
         />
       )}
       <CommandPalette

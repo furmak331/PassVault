@@ -1013,3 +1013,11 @@ kbd.pv-kbd {
   height: 18px;
   stroke-width: 2.2;
 }
+
+/* QR codes stay dark on white in every theme, on a rounded plate. */
+.pv-qr {
+  display: block;
+  flex: none;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px var(--pv-line);
+}

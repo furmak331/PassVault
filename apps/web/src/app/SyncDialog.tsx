@@ -1,4 +1,5 @@
 import {
+  buildSetupLink,
   checkServer,
   compareVaults,
   createSyncAccount,
@@ -6,6 +7,7 @@ import {
   SyncError,
   unlockVault,
   type ServerInfo,
+  type SetupLink,
   type SyncDevice,
   type SyncEngine,
   type SyncSettings,
@@ -19,12 +21,14 @@ import {
   Dialog,
   Fingerprint,
   Icon,
+  QrCode,
   Segmented,
   TextField,
   useToast,
 } from '@passvaultify/ui';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { relativeTime, useRings } from './hooks';
+import { appUrl } from './setupLink';
 import { deviceName, hostOf, syncSentence } from './sync';
 
 export interface SyncActions {
@@ -54,6 +58,7 @@ export function SyncDialog({
   engine,
   status,
   actions,
+  link,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -62,6 +67,8 @@ export function SyncDialog({
   engine: SyncEngine | null;
   status: SyncStatus | null;
   actions: SyncActions;
+  /** A setup link this page was opened with: fills in the server and checks its fingerprint. */
+  link?: SetupLink | null;
 }) {
   return (
     <Dialog
@@ -89,6 +96,7 @@ export function SyncDialog({
       ) : (
         <ConnectFlow
           vault={vault}
+          link={link ?? null}
           onDone={() => onOpenChange(false)}
           onConnected={actions.connected}
           onJoin={actions.joinVault}
@@ -102,7 +110,7 @@ export function SyncDialog({
 
 type Stage =
   | { name: 'server' }
-  | { name: 'account'; server: string; info: ServerInfo }
+  | { name: 'account'; server: string; info: ServerInfo; verified: boolean }
   | {
       name: 'different';
       settings: SyncSettings;
@@ -113,11 +121,13 @@ type Stage =
 /** For a device that already has a vault: create an account from it, or sign in. */
 function ConnectFlow({
   vault,
+  link,
   onDone,
   onConnected,
   onJoin,
 }: {
   vault: Vault;
+  link: SetupLink | null;
   onDone: () => void;
   onConnected: SyncActions['connected'];
   onJoin: SyncActions['joinVault'];
@@ -126,7 +136,14 @@ function ConnectFlow({
   const toast = useToast();
 
   if (stage.name === 'server') {
-    return <ServerStep onChecked={(server, info) => setStage({ name: 'account', server, info })} />;
+    return (
+      <ServerStep
+        link={link}
+        onChecked={(server, info, verified) =>
+          setStage({ name: 'account', server, info, verified })
+        }
+      />
+    );
   }
   if (stage.name === 'different') {
     return (
@@ -146,6 +163,7 @@ function ConnectFlow({
     <AccountStep
       server={stage.server}
       info={stage.info}
+      verified={stage.verified}
       allowCreate
       onBack={() => setStage({ name: 'server' })}
       onSubmit={async (mode, email, password) => {
@@ -184,42 +202,65 @@ function ConnectFlow({
   );
 }
 
-/** Step 1: where is the server? Used by the welcome screen too. */
+/**
+ * Step 1: where is the server? Takes an address, or a setup link from a device
+ * that's already connected. Used by the welcome screen too.
+ */
 export function ServerStep({
   onChecked,
+  link,
 }: {
-  onChecked: (server: string, info: ServerInfo) => void;
+  onChecked: (server: string, info: ServerInfo, verified: boolean) => void;
+  /** Opened from a setup link: checked straight away. */
+  link?: SetupLink | null;
 }) {
-  const [address, setAddress] = useState('');
+  const [address, setAddress] = useState(() =>
+    link ? buildSetupLink(appUrl(), link.server, link.fingerprint) : '',
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!address.trim() || busy) return;
+  const check = async (input: string) => {
     setBusy(true);
     setError(null);
     try {
-      const { server, info } = await checkServer(address);
-      onChecked(server, info);
+      const { server, info, verified } = await checkServer(input);
+      onChecked(server, info, verified);
     } catch (err) {
       setBusy(false);
       setError(syncErrorText(err));
     }
   };
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (address.trim() && !busy) void check(address);
+  };
+
+  // A setup link needs nothing typed: check it as soon as it's shown.
+  const checkedLink = useRef(false);
+  useEffect(() => {
+    if (!link || checkedLink.current) return;
+    checkedLink.current = true;
+    void check(buildSetupLink(appUrl(), link.server, link.fingerprint));
+    // Once, for the link the step opened with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <form className="stack" onSubmit={(e) => void submit(e)}>
       <TextField
-        label="Server address"
+        label="Server address or setup link"
         placeholder="vault.example.com"
         autoComplete="url"
         inputMode="url"
         spellCheck={false}
         autoFocus
         value={address}
-        onChange={(e) => setAddress(e.target.value)}
-        hint="A PassVaultify server you or someone you trust runs. It needs HTTPS."
+        onChange={(e) => {
+          setAddress(e.target.value);
+          setError(null);
+        }}
+        hint="A PassVaultify server you or someone you trust runs, with HTTPS. On a device that's already connected, Sync → Add a device gives a link that fills this in."
       />
       {error && (
         <p className="form-error" role="alert">
@@ -236,7 +277,16 @@ export function ServerStep({
 }
 
 /** The server's fingerprint, drawn like a vault's, to compare with what the server shows. */
-export function ServerIdentity({ server, info }: { server: string; info: ServerInfo }) {
+export function ServerIdentity({
+  server,
+  info,
+  verified = false,
+}: {
+  server: string;
+  info: ServerInfo;
+  /** The fingerprint matched a setup link, so there's nothing to compare by eye. */
+  verified?: boolean;
+}) {
   const rings = useRings(info.fingerprint);
   return (
     <div className="server-id">
@@ -244,10 +294,17 @@ export function ServerIdentity({ server, info }: { server: string; info: ServerI
       <div className="server-id__text">
         <span className="server-id__host">{hostOf(server)}</span>
         <span className="pv-fp-code">{info.fingerprint}</span>
-        <span className="row-setting__hint">
-          Server fingerprint. Check it matches the one at {hostOf(server)}/v1/server before you sign
-          in. If it doesn't, stop here.
-        </span>
+        {verified ? (
+          <span className="server-id__verified">
+            <Icon name="check" />
+            Matches your setup link
+          </span>
+        ) : (
+          <span className="row-setting__hint">
+            Server fingerprint. Check it matches the one at {hostOf(server)}/v1/server before you
+            sign in. If it doesn't, stop here.
+          </span>
+        )}
       </div>
     </div>
   );
@@ -259,12 +316,14 @@ type AccountMode = 'create' | 'signin';
 export function AccountStep({
   server,
   info,
+  verified = false,
   allowCreate,
   onBack,
   onSubmit,
 }: {
   server: string;
   info: ServerInfo;
+  verified?: boolean;
   allowCreate: boolean;
   onBack: () => void;
   onSubmit: (mode: AccountMode, email: string, password: string) => Promise<void>;
@@ -291,7 +350,7 @@ export function AccountStep({
 
   return (
     <form className="stack" onSubmit={(e) => void submit(e)}>
-      <ServerIdentity server={server} info={info} />
+      <ServerIdentity server={server} info={info} verified={verified} />
       {allowCreate && (
         <Segmented
           label="Account"
@@ -447,6 +506,8 @@ function Connected({
 
       {status?.state === 'signed-out' && engine && <SignInAgain engine={engine} />}
 
+      <AddDevice connection={connection} />
+
       {engine?.client && status?.state !== 'signed-out' && <Devices engine={engine} />}
 
       {engine?.client && status?.state !== 'signed-out' && (
@@ -471,6 +532,57 @@ function Connected({
           <Button onClick={() => setConfirming(true)}>Disconnect…</Button>
         )}
       </div>
+    </div>
+  );
+}
+
+/** A link and QR code that set another device up for this server, fingerprint included. */
+function AddDevice({ connection }: { connection: SyncSettings }) {
+  const [shown, setShown] = useState(false);
+  const toast = useToast();
+  const link = buildSetupLink(appUrl(), connection.server, connection.serverFingerprint);
+  return (
+    <div className="add-device">
+      <div className="row-setting">
+        <span className="row-setting__label">
+          Add a device
+          <span className="row-setting__hint">
+            A link that fills in this server on another device and checks its fingerprint for you.
+          </span>
+        </span>
+        <Button icon={shown ? 'close' : 'plus'} onClick={() => setShown(!shown)}>
+          {shown ? 'Hide' : 'Show link'}
+        </Button>
+      </div>
+      {shown && (
+        <div className="add-device__panel">
+          <QrCode value={link} size={160} label={`Setup link for ${hostOf(connection.server)}`} />
+          <div className="add-device__text">
+            <p>
+              <strong>Phone:</strong> scan the code with the camera.{' '}
+              <strong>Another computer:</strong> open the link. <strong>Chrome extension:</strong>{' '}
+              paste it into Server address.
+            </p>
+            <code className="add-device__link">{link}</code>
+            <Button
+              icon="copy"
+              onClick={() =>
+                void navigator.clipboard.writeText(link).then(
+                  () => toast('Setup link copied'),
+                  () => toast("Couldn't copy the link"),
+                )
+              }
+            >
+              Copy link
+            </Button>
+            <p className="row-setting__hint">
+              It holds only the server's address and fingerprint, so it's safe to send. The new
+              device still needs your email and master password, and has to be able to reach the
+              server (for a server at home, with Tailscale on).
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

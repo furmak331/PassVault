@@ -152,3 +152,54 @@
     animation: none !important;
   }
 }
+
+/* The fingerprint matched a setup link: nothing to compare by eye. */
+.server-id__verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 640;
+  color: var(--pv-ok);
+}
+.server-id__verified .pv-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Add a device: the setup link as a QR code and as text. */
+.add-device__panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px 20px;
+  padding: 16px;
+  border-radius: var(--pv-radius);
+  background: var(--pv-sunken);
+  box-shadow: inset 0 0 0 1px var(--pv-line);
+}
+.add-device__text {
+  flex: 1 1 220px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.add-device__text p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.add-device__link {
+  display: block;
+  max-width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--pv-surface);
+  box-shadow: inset 0 0 0 1px var(--pv-line);
+  font: 600 12px var(--pv-mono);
+  color: var(--pv-ink-2);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
