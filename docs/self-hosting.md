@@ -4,8 +4,11 @@ The PassVaultify sync server keeps your vault in step across devices. It stores
 only ciphertext: your master password, master key and vault key never reach
 it, so whoever runs the server, you included, can't read the vault.
 
-This guide runs it with Docker Compose behind Caddy, which gets and renews the
-HTTPS certificate on its own. You need:
+To run it at home instead (on a laptop or a mini PC, reachable only from your
+own devices, with no domain or open ports), see [homelab.md](homelab.md).
+
+This guide runs it on a public server with Docker Compose behind Caddy, which
+gets and renews the HTTPS certificate on its own. You need:
 
 - a machine that's always on: a small VPS, a home server or a Raspberry Pi 4
   (512 MB of free memory is enough);

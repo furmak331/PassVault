@@ -183,6 +183,9 @@ SYNC_SERVER_URL=http://localhost:8080 pnpm --filter @passvaultify/core exec vite
 ```
 
 To run your own server with HTTPS, follow [docs/self-hosting.md](docs/self-hosting.md).
+To run it at home instead (on a laptop or a mini PC, reachable only from your
+own devices through Tailscale, with no domain or open ports), follow
+[docs/homelab.md](docs/homelab.md).
 
 ### Sync in the apps
 
